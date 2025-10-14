@@ -1,8 +1,51 @@
 #include "Field.h"
 #include <random>
 #include <algorithm>
+#include <iostream>
 
 std::mt19937 Field::rng(std::random_device{}());
+
+sf::Vector2i Field::random_pos(int max_x, int max_y) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_int_distribution<> dis_x(0, max_x - 1);
+    std::uniform_int_distribution<> dis_y(0, max_y - 1);
+    return {dis_x(gen), dis_y(gen)};
+}
+
+
+FieldContent Field::generate_random_content(int blocked_count, int slowing_count, int building_count, int enemy_count, int COLS, int ROWS)
+{
+    FieldContent content;
+
+    for (int i = 0; i < blocked_count; ++i) {
+        sf::Vector2i pos = random_pos(COLS, ROWS);
+        if (pos.x == 0 && pos.y == 0) continue;
+        content.blocked.push_back(pos);
+    }
+
+    for (int i = 0; i < slowing_count; ++i) {
+        sf::Vector2i pos = random_pos(COLS, ROWS);
+        if (pos.x == 0 && pos.y == 0) continue;
+        content.slowing.push_back(pos);
+    }
+
+    for (int i = 0; i < building_count; ++i) {
+        sf::Vector2i pos = random_pos(COLS, ROWS);
+        if (pos.x == 0 && pos.y == 0) continue;
+        EnemyBuilding* b = new EnemyBuilding(10, 30, 10);
+        content.buildings.emplace_back(pos, b);
+    }
+
+    for (int i = 0; i < enemy_count; ++i) {
+        sf::Vector2i pos = random_pos(COLS, ROWS);
+        if (pos.x == 0 && pos.y == 0) continue;
+        Enemy* e = new Enemy(30, 10);
+        content.initial_enemies.emplace_back(pos, e);
+    }
+
+    return content;
+}
 
 Field::Field(int r, int c) : rows(r), cols(c), grid(r, std::vector<Cell>(c)) {
     if (r < 10 || r > 25 || c < 10 || c > 25) {
@@ -111,18 +154,15 @@ const Cell& Field::get_cell(int x, int y) const {
     return grid[y][x];
 }
 
-void Field::initialize(Player* p, const std::vector<sf::Vector2i>& blocked_positions,
-                       const std::vector<sf::Vector2i>& slowing_positions,
-                       const std::vector<std::pair<sf::Vector2i, EnemyBuilding*>>& building_positions,
-                       const std::vector<std::pair<sf::Vector2i, Enemy*>>& initial_enemies) {
+void Field::initialize(Player* p, const FieldContent& content) {
     player = p;
-    for (auto pos : blocked_positions) {
+    for (auto pos : content.blocked) {
         get_cell(pos.x, pos.y).setType(CellType::Blocked);
     }
-    for (auto pos : slowing_positions) {
+    for (auto pos : content.slowing) {
         get_cell(pos.x, pos.y).setProperty(CellProperty::Slowing);
     }
-    for (auto& pair : building_positions) {
+    for (auto& pair : content.buildings) {
         auto pos = pair.first;
         auto b = pair.second;
         buildings.push_back(b);
@@ -130,7 +170,7 @@ void Field::initialize(Player* p, const std::vector<sf::Vector2i>& blocked_posit
         cell.setType(CellType::Building);
         cell.setBuilding(b);
     }
-    for (auto& pair : initial_enemies) {
+    for (auto& pair : content.initial_enemies) {
         auto pos = pair.first;
         auto e = pair.second;
         enemies.push_back(e);
@@ -141,6 +181,7 @@ void Field::initialize(Player* p, const std::vector<sf::Vector2i>& blocked_posit
     auto& start_cell = get_cell(0, 0);
     start_cell.setType(CellType::Player);
     start_cell.setPlayer(player);
+    std::cout << "Player spawned at (0,0), health: " << player->get_health() << std::endl;
 }
 
 sf::Vector2i Field::find_player_position() const {
@@ -173,6 +214,8 @@ bool Field::move_player(sf::Vector2i direction) {
                 enemies.erase(it);
             }
             player->change_score(10);
+            std::cout << "Player get 10 pts. Current score: " << player->get_score() << "\n";
+
         }
         return true;
     }

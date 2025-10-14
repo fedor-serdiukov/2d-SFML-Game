@@ -7,6 +7,13 @@
 #include "EnemyBuilding.h"
 #include <random>
 
+struct FieldContent {
+    std::vector<sf::Vector2i> blocked;
+    std::vector<sf::Vector2i> slowing;
+    std::vector<std::pair<sf::Vector2i, EnemyBuilding*>> buildings;
+    std::vector<std::pair<sf::Vector2i, Enemy*>> initial_enemies;
+};
+
 class Field {
 private:
     int rows;
@@ -29,11 +36,9 @@ public:
     int get_cols() const;
     Cell& get_cell(int x, int y);
     const Cell& get_cell(int x, int y) const;
-
-    void initialize(Player* p, const std::vector<sf::Vector2i>& blocked_positions,
-                    const std::vector<sf::Vector2i>& slowing_positions,
-                    const std::vector<std::pair<sf::Vector2i, EnemyBuilding*>>& building_positions,
-                    const std::vector<std::pair<sf::Vector2i, Enemy*>>& initial_enemies);
+    sf::Vector2i random_pos(int max_x, int max_y);
+    FieldContent generate_random_content(int blocked_count, int slowing_count, int building_count, int enemy_count, int COLS, int ROWS);
+    void initialize(Player* p, const FieldContent& content);
 
     sf::Vector2i find_player_position() const;
     bool move_player(sf::Vector2i direction);

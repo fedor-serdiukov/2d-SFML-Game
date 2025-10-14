@@ -11,8 +11,7 @@ add_executable(oop_project_game main.cpp
         Player.cpp
         Field.cpp
         Cell.cpp
-        EnemyBuilding.cpp
-        greeting_func.cpp)
+        EnemyBuilding.cpp)
 
 target_link_libraries(oop_project_game sfml-graphics sfml-window sfml-system)
 

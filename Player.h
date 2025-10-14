@@ -17,6 +17,7 @@ private:
     int slowed_turns = 0;
 public:
     Player(int max_health, int melee_damage, int ranged_damage);
+    static bool inputPlayerStats(int& player_max_health, int& melee_damage, int& ranged_damage);
     int get_health() const;
     int get_max_health() const;
     int get_damage() const;

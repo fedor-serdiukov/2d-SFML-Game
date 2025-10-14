@@ -1,68 +1,28 @@
 #include <SFML/Window.hpp>
 #include <SFML/Graphics.hpp>
 #include <iostream>
-#include <random>
-#include <vector>
 #include "Field.h"
-#include "Enemy.h"
-#include "EnemyBuilding.h"
 #include "Player.h"
-#include "greeting_func.h"
 
 
 constexpr unsigned int FPS_LIMIT = 30;
 constexpr unsigned int ROWS = 15;
 constexpr unsigned int COLS = 15;
 
-sf::Vector2i random_pos(int max_x, int max_y) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis_x(0, max_x - 1);
-    std::uniform_int_distribution<> dis_y(0, max_y - 1);
-    return {dis_x(gen), dis_y(gen)};
-}
 
 int main() {
     int player_max_health, melee_damage, ranged_damage;
 
-    if (!inputPlayerStats(player_max_health, melee_damage, ranged_damage)) {
+    if (!Player::inputPlayerStats(player_max_health, melee_damage, ranged_damage)) {
         return EXIT_FAILURE;
     }
+
     Player* player = new Player(player_max_health, melee_damage, ranged_damage);
-    std::cout << "Game started\nTo exit, press ESC\nMove with WASD, switch mode with SPACE\n";
 
     Field field(ROWS, COLS);
+    FieldContent content = field.generate_random_content(25, 30, 1, 5, COLS, ROWS);
 
-    std::vector<sf::Vector2i> blocked;
-    std::vector<sf::Vector2i> slowing;
-    std::vector<std::pair<sf::Vector2i, EnemyBuilding*>> buildings;
-    std::vector<std::pair<sf::Vector2i, Enemy*>> initial_enemies;
-
-    for (int i = 0; i < 25; ++i) {
-        sf::Vector2i pos = random_pos(COLS, ROWS);
-        if (pos.x == 0 && pos.y == 0) continue;
-        blocked.push_back(pos);
-    }
-    for (int i = 0; i < 30; ++i) {
-        sf::Vector2i pos = random_pos(COLS, COLS);
-        if (pos.x == 0 && pos.y == 0) continue;
-        slowing.push_back(pos);
-    }
-    for (int i = 0; i < 1; ++i) {
-        sf::Vector2i pos = random_pos(COLS, ROWS);
-        if (pos.x == 0 && pos.y == 0) continue;
-        EnemyBuilding* b = new EnemyBuilding(10, 30, 10);
-        buildings.emplace_back(pos, b);
-    }
-    for (int i = 0; i < 5; ++i) {
-        sf::Vector2i pos = random_pos(COLS, ROWS);
-        if (pos.x == 0 && pos.y == 0) continue;
-        Enemy* e = new Enemy(30, 10);
-        initial_enemies.emplace_back(pos, e);
-    }
-
-    field.initialize(player, blocked, slowing, buildings, initial_enemies);
-    std::cout << "Player spawned at (0,0), health: " << player->get_health() << std::endl;
+    field.initialize(player, content);
 
     const float tileSize = 25.f;
     const float spacing = 2.f;
@@ -74,7 +34,6 @@ int main() {
         "Game",
         sf::Style::Titlebar | sf::Style::Close
     ); window.setFramerateLimit(FPS_LIMIT);
-
 
     bool player_turn = true;
 
@@ -92,8 +51,12 @@ int main() {
                     window.close();
                     return 0;
                 }
-
-                if (player_turn && !player->is_slowed()) {
+                if (player_turn && player->is_slowed()) {
+                    player->decrement_slow();
+                    player_turn = false;
+                    continue;
+                }
+                if (player_turn) {
                     sf::Vector2i dir(0, 0);
                     bool action_taken = false;
                     if (keyPressed->code == sf::Keyboard::Key::W) dir = {0, -1};
@@ -103,14 +66,18 @@ int main() {
                     else if (keyPressed->code == sf::Keyboard::Key::Space) {
                         player->toggle_combat_mode();
                         action_taken = true;
-                        std::cout << "Switched to " << (player->get_combat_mode() == CombatMode::Melee ? "Melee" : "Ranged") << " mode" << std::endl;
                     }
                     if (dir != sf::Vector2i(0, 0)) {
                         bool moved = field.move_player(dir);
                         action_taken = moved;
                         if (moved) {
                             sf::Vector2i pos = field.find_player_position();
-                            std::cout << "Player moved to (" << pos.x << ", " << pos.y << "), health: " << player->get_health() << std::endl;
+                            std::cout << "Player moved to (" << pos.x << ", " << pos.y << "), health: " << player->get_health();
+                            if (field.get_cell(pos.x, pos.y).getProperty() == CellProperty::Slowing && player->is_slowed()) {
+                                player->apply_slow(2);
+                                std::cout << ", entered Slowing tile! Movement blocked next turn.";
+                            }
+                            std::cout << std::endl;
                         }
                     }
                     if (action_taken) {
@@ -118,7 +85,6 @@ int main() {
                     }
                 }
             }
-
 
             if (event.getIf<sf::Event::MouseButtonPressed>()) {
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
