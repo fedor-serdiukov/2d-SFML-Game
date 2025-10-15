@@ -6,8 +6,8 @@
 
 
 constexpr unsigned int FPS_LIMIT = 30;
-constexpr unsigned int ROWS = 15;
-constexpr unsigned int COLS = 15;
+constexpr unsigned int ROWS = 25;
+constexpr unsigned int COLS = 25;
 
 
 int main() {
