@@ -1,19 +1,25 @@
 #pragma once
 #include "ISpell.h"
 
-class TrapSpell : public ISpell {
+class SummonSpell : public ISpell {
 private:
-    int damage;
-    int range;
+    int allyHealth;
+    int allyDamage;
+    int summonsCount;
     std::string name;
     std::string description;
 
 public:
-    TrapSpell(int dmg, int rng, std::string n, std::string desc);
+    SummonSpell(int hp, int dmg, int count, std::string n, std::string desc);
 
     std::unique_ptr<ISpell> clone() const override;
     std::string getName() const override;
     std::string getDescription() const override;
     int getRange() const override;
+
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
+
+    // Методы для усиления
+    int getSummonsCount() const { return summonsCount; }
+    void setSummonsCount(int count) { summonsCount = count; }
 };

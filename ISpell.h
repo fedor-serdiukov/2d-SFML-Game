@@ -15,7 +15,12 @@ public:
     virtual std::unique_ptr<ISpell> clone() const = 0;
     // Максимальная дальность (Манхэттенское расстояние)
     virtual int getRange() const = 0;
+    virtual void setRange(int range) {}
+    virtual int getDamage() const { return 0; } // Используется для TrapSpell
+    virtual void setDamage(int damage) {} // Используется для TrapSpell
 
+    // Вспомогательный метод для определения типа (BuffSpell - это "улучшение")
+    virtual bool isBuffSpell() const { return false; }
     /**
      * @brief Применяет заклинание.
      * @param player Игрок, кастующий заклинание.

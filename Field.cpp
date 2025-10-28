@@ -86,6 +86,7 @@ Field& Field::operator=(const Field& other) {
         for (auto b : buildings) delete b;
         for (auto t : towers) delete t;
         for (auto t : traps) delete t;
+        for (auto a : allies) delete a;
         delete player; // 'player' удаляется здесь, а не в deep_copy
 
         enemies.clear();
@@ -190,6 +191,18 @@ void Field::deep_copy(const Field& other) {
             for (int x = 0; x < cols; ++x) {
                 if (other.grid[y][x].getTrap() == t) {
                     grid[y][x].setTrap(new_t);
+                }
+            }
+        }
+    }
+
+    for (auto a : other.allies) {
+        Ally* new_a = new Ally(*a); // Используем конструктор копирования
+        allies.push_back(new_a);
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < cols; ++x) {
+                if (other.grid[y][x].getAlly() == a) {
+                    grid[y][x].setAlly(new_a);
                 }
             }
         }
@@ -324,6 +337,18 @@ void Field::move_enemies() {
                 target.getType() == CellType::Tower) // <-- Враги тоже не ходят на башни
             {
                 continue;
+            }
+            if (target.getType() == CellType::Ally) {
+                Ally* ally = target.getAlly();
+                ally->changeHealth(-e->get_damage());
+                std::cout << "Enemy attacked Ally for " << e->get_damage() << " damage.\n";
+
+                if (ally->getHealth() <= 0) {
+                    std::cout << "Ally defeated at (" << new_pos.x << ", " << new_pos.y << ").\n";
+                    removeAlly(ally);
+                }
+                moved = true; // Считаем, что атака - это ход
+                break;
             }
             if (target.getType() == CellType::Player) {
                 player->change_health(-e->get_damage());
@@ -493,6 +518,116 @@ sf::Vector2i Field::find_tower_position(EnemyTower* t) const {
     for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < cols; ++x) {
             if (grid[y][x].getTower() == t) {
+                return {x, y};
+            }
+        }
+    }
+    return {-1, -1};
+}
+
+void Field::move_allies() {
+    // Используем копию, т.к. damageEnemyAt может удалить врага, а move_enemies - союзника
+    std::vector<Ally*> allies_copy = allies;
+
+    for (auto a : allies_copy) {
+        sf::Vector2i pos = find_ally_position(a);
+        if (pos.x < 0) continue; // Союзник не найден (возможно, убит)
+
+        // 1. Поиск ближайшего врага
+        sf::Vector2i target_enemy_pos = {-1, -1};
+        Enemy* target_enemy = nullptr;
+        int min_dist = rows * cols;
+
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < cols; ++x) {
+                if (grid[y][x].getType() == CellType::Enemy) {
+                    int dist = std::abs(pos.x - x) + std::abs(pos.y - y);
+                    if (dist < min_dist) {
+                        min_dist = dist;
+                        target_enemy_pos = {x, y};
+                        target_enemy = grid[y][x].getEnemy();
+                    }
+                }
+            }
+        }
+
+        if (!target_enemy) continue; // Нет врагов на поле
+
+        // 2. Атака или Перемещение
+        if (min_dist == 1) {
+            // Атака
+            std::cout << "Ally at (" << pos.x << ", " << pos.y
+                      << ") attacked Enemy for " << a->getDamage() << " damage!\n";
+            damageEnemyAt(target_enemy_pos, a->getDamage());
+        } else {
+            // Перемещение к ближайшему врагу
+            int dx = (target_enemy_pos.x > pos.x) ? 1 : (target_enemy_pos.x < pos.x) ? -1 : 0;
+            int dy = (target_enemy_pos.y > pos.y) ? 1 : (target_enemy_pos.y < pos.y) ? -1 : 0;
+
+            sf::Vector2i new_pos = pos;
+
+            // Пытаемся переместиться по X или Y
+            if (dx != 0 && is_valid_position({pos.x + dx, pos.y}) && get_cell(pos.x + dx, pos.y).getType() == CellType::Empty) {
+                new_pos.x += dx;
+            } else if (dy != 0 && is_valid_position({pos.x, pos.y + dy}) && get_cell(pos.x, pos.y + dy).getType() == CellType::Empty) {
+                new_pos.y += dy;
+            }
+
+            if (new_pos != pos) {
+                // Перемещаем союзника
+                get_cell(pos.x, pos.y).clear();
+                get_cell(new_pos.x, new_pos.y).setType(CellType::Ally);
+                get_cell(new_pos.x, new_pos.y).setAlly(a);
+            }
+        }
+    }
+}
+
+void Field::addAlly(Ally* ally, sf::Vector2i pos) {
+    if (!is_valid_position(pos)) {
+        delete ally;
+        return;
+    }
+    allies.push_back(ally);
+    get_cell(pos.x, pos.y).setAlly(ally);
+    get_cell(pos.x, pos.y).setType(CellType::Ally);
+}
+
+void Field::removeAlly(Ally* ally) {
+    if (!ally) return;
+
+    // Очищаем клетку
+    sf::Vector2i pos = find_ally_position(ally);
+    if (pos.x >= 0) {
+        get_cell(pos.x, pos.y).clear();
+    }
+
+    // Находим и удаляем союзника из вектора владения
+    auto it = std::find(allies.begin(), allies.end(), ally);
+    if (it != allies.end()) {
+        delete *it;
+        allies.erase(it);
+    }
+}
+
+void Field::damageAllyAt(sf::Vector2i pos, int damage) {
+    if (!is_valid_position(pos)) return;
+    Cell& cell = get_cell(pos.x, pos.y);
+    Ally* ally = cell.getAlly();
+
+    if (ally) {
+        ally->changeHealth(-damage);
+        if (ally->getHealth() <= 0) {
+            std::cout << "Ally defeated at (" << pos.x << ", " << pos.y << ") by spell damage.\n";
+            removeAlly(ally);
+        }
+    }
+}
+
+sf::Vector2i Field::find_ally_position(Ally* a) const {
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            if (grid[y][x].getAlly() == a) {
                 return {x, y};
             }
         }

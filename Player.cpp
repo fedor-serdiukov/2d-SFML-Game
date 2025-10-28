@@ -1,5 +1,11 @@
 #include "Player.h"
 #include <iostream>
+#include "SummonSpell.h"
+#include "DirectDamageSpell.h"
+#include "AreaDamageSpell.h"
+#include "TrapSpell.h"
+
+
 
 bool Player::inputPlayerStats(int& player_max_health, int& melee_damage, int& ranged_damage) {
     std::cout << "Welcome to the Game!\nFirst, you should choose player's health and damage from the list\n"
@@ -33,22 +39,20 @@ Player::Player(const Player& other)
       ranged_damage(other.ranged_damage),
       score(other.score),
       combat_mode(other.combat_mode),
-      switching_mode(other.switching_mode), // вероятно, должно быть false?
+      switching_mode(other.switching_mode),
       slowed_turns(other.slowed_turns),
-      hand(other.hand), // <-- Здесь вызывается Hand(const Hand& other)
+      hand(other.hand),
       killCount(other.killCount)
-{
-    // Тело конструктора может быть пустым
-}
+{}
 
 Player::Player(int max_health, int melee_damage, int ranged_damage, size_t handSize)
     : health(max_health), max_health(max_health),
       melee_damage(melee_damage), ranged_damage(ranged_damage),
       combat_mode(CombatMode::Melee), switching_mode(false), slowed_turns(0),
-      hand(handSize) // <-- Инициализация руки
+      hand(handSize)
 {
     std::cout << "Game started\nTo exit, press ESC\nMove with WASD, switch mode with SPACE\n";
-    std::cout << "Press 1-3 to select spell, B to buy spell (50 points).\n"; // <-- НОВОЕ
+    std::cout << "Press 1-3 to select spell, B to buy spell (50 points).\n";
 }
 
 void Player::set_max_health(int max_health) {
@@ -138,4 +142,27 @@ int Player::getKillCount() const {
 
 void Player::resetKillCount() {
     killCount = 0;
+}
+
+void Player::applyBuffToSpell(ISpell& spell) const {
+    if (buffCharges == 0) return;
+
+    DirectDamageSpell* dds = dynamic_cast<DirectDamageSpell*>(&spell);
+    AreaDamageSpell* ads = dynamic_cast<AreaDamageSpell*>(&spell);
+    TrapSpell* ts = dynamic_cast<TrapSpell*>(&spell);
+    SummonSpell* ss = dynamic_cast<SummonSpell*>(&spell);
+
+    if (dds) {
+        dds->setRange(dds->getRange() + buffCharges);
+        std::cout << "[BUFF] Прямой урон: Радиус увеличен на " << buffCharges << std::endl;
+    } else if (ads) {
+        ads->setRange(ads->getRange() + buffCharges);
+        std::cout << "[BUFF] Урон по площади: Радиус увеличен на " << buffCharges << std::endl;
+    } else if (ts) {
+        ts->setDamage(ts->getDamage() + buffCharges * 10);
+        std::cout << "[BUFF] Ловушка: Урон увеличен на " << buffCharges * 10 << std::endl;
+    } else if (ss) {
+        ss->setSummonsCount(ss->getSummonsCount() + buffCharges);
+        std::cout << "[BUFF] Призыв: Количество союзников увеличено на " << buffCharges << std::endl;
+    }
 }

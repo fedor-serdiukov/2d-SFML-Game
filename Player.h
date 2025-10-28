@@ -18,7 +18,9 @@ private:
     int slowed_turns = 0;
 
     Hand hand; // <-- НОВОЕ
-    int killCount = 0; // <-- НОВОЕ
+    int killCount = 0;
+    int buffCharges = 0;
+    // <-- НОВОЕ
 
 public:
     // Добавлен handSize
@@ -48,4 +50,11 @@ public:
     void incrementKillCount();
     int getKillCount() const;
     void resetKillCount();
+
+    int getBuffCharges() const { return buffCharges; }
+    void addBuffCharge() { buffCharges++; }
+    void resetBuffCharges() { buffCharges = 0; }
+
+    // Метод для применения усиления к заклинанию перед использованием
+    void applyBuffToSpell(ISpell& spell) const;
 };

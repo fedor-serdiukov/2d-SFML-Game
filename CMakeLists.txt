@@ -18,6 +18,9 @@ add_executable(oop_project_game main.cpp
         EnemyTower.cpp
         Trap.cpp
         TrapSpell.cpp
+        Ally.cpp
+        SummonSpell.cpp
+        BuffSpell.cpp
 
 
 )

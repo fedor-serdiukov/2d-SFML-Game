@@ -7,6 +7,7 @@
 #include "EnemyBuilding.h"
 #include "Trap.h"
 #include "EnemyTower.h"
+#include "Ally.h"
 #include <random>
 
 struct FieldContent {
@@ -30,6 +31,8 @@ private:
     std::vector<EnemyTower*> towers;
     std::vector<Trap*> traps;
     sf::Vector2i find_tower_position(EnemyTower* t) const;
+    std::vector<Ally*> allies;
+    sf::Vector2i find_ally_position(Ally* a) const;
 public:
     Field(int r, int c);
     Field(const Field& other);
@@ -60,4 +63,8 @@ public:
     void removeTrapAt(sf::Vector2i pos);
     void damageEnemyAt(sf::Vector2i pos, int damage);
     void damageBuildingAt(sf::Vector2i pos, int damage);
+    void move_allies(); // <-- НОВЫЙ МЕТОД
+    void addAlly(Ally* ally, sf::Vector2i pos); // <-- НОВЫЙ МЕТОД
+    void removeAlly(Ally* ally); // <-- НОВЫЙ МЕТОД
+    void damageAllyAt(sf::Vector2i pos, int damage);
 };

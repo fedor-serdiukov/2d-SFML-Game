@@ -4,6 +4,8 @@
 #include "AreaDamageSpell.h"
 #include "TrapSpell.h"
 #include <memory>
+#include "BuffSpell.h"
+#include "SummonSpell.h"
 #include <random>
 
 class SpellFactory {
@@ -24,10 +26,15 @@ public:
         } else if (type == 1) { // <-- ИЗМЕНЕНО НА ELSE IF
             // AoE урон: урон 10, дальность 4
             return std::make_unique<AreaDamageSpell>(10, 4, "Meteor", "Calls a 2x2 meteor (10 dmg).");
+        } else if (type == 2) {
+            return std::make_unique<TrapSpell>(40, 3, "Trap", "Lays a 40 dmg trap.");
+        } else if (type == 3) {
+            // --- НОВОЕ ЗАКЛИНАНИЕ ПРИЗЫВА ---
+            // Здоровье 15, Урон 5, Призыв 1
+            return std::make_unique<SummonSpell>(15, 5, 1, "Golem", "Summons a small ally (15 HP, 5 DMG).");
         } else {
-            // --- НОВОЕ ЗАКЛИНАНИЕ ---
-            // Ловушка: урон 40, дальность 3
-            return std::make_unique<TrapSpell>(100, 3, "Trap", "Lays a 100 dmg trap.");
+            // --- НОВОЕ ЗАКЛИНАНИЕ УЛУЧШЕНИЯ ---
+            return std::make_unique<BuffSpell>("Rune", "Buffs your next non-buff spell.");
         }
     }
 };

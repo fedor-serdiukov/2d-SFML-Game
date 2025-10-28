@@ -6,6 +6,7 @@
 
 class Trap;
 class EnemyTower;
+class Ally;
 
 enum class CellType {
     Empty,
@@ -13,7 +14,8 @@ enum class CellType {
     Enemy,
     Building,
     Blocked,
-    Tower
+    Tower,
+    Ally
 };
 
 enum class CellProperty {
@@ -35,6 +37,7 @@ private:
     static void loadTextures();
     Trap* trap = nullptr;
     EnemyTower* tower = nullptr;
+    Ally* ally = nullptr;
 public:
     Cell(CellType t = CellType::Empty, CellProperty p = CellProperty::None);
     void draw(sf::RenderWindow& window, float x, float y, float tileSize);
@@ -52,5 +55,7 @@ public:
     Trap* getTrap() const;
     void setTower(EnemyTower* t);
     EnemyTower* getTower() const;
+    void setAlly(Ally* a);
+    Ally* getAlly() const;
     void clear();
 };

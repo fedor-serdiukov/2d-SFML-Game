@@ -22,9 +22,8 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    Player* player = new Player(player_max_health, melee_damage, ranged_damage, 3);
-    SpellFactory spellFactory; // <-- НОВОЕ
-    // Даем игроку одно стартовое заклинание
+    Player* player = new Player(player_max_health, melee_damage, ranged_damage, 5);
+    SpellFactory spellFactory;
     player->getHand().addSpell(spellFactory.createRandomSpell());
 
     Field field(ROWS, COLS);
@@ -44,7 +43,7 @@ int main() {
     ); window.setFramerateLimit(FPS_LIMIT);
 
     bool player_turn = true;
-    GameMode currentMode = GameMode::Movement; // <-- НОВОЕ
+    GameMode currentMode = GameMode::Movement;
     ISpell* selectedSpell = nullptr;
     sf::Texture blockedTex, emptyTex, buildingTex, enemyTex;
     if (!blockedTex.loadFromFile("textures/block.png")) {
@@ -81,24 +80,22 @@ int main() {
                 if (player_turn && player->is_slowed()) {
                     player->decrement_slow();
                     player_turn = false;
-                    currentMode = GameMode::Movement; // Сбрасываем режим
+                    currentMode = GameMode::Movement;
                     selectedSpell = nullptr;
                     std::cout << "Player is slowed! Turn skipped.\n";
                     continue;
                 }
-                //
-                // if (player_turn && player->is_slowed()) {
-                //     player->decrement_slow();
-                //     player_turn = false;
-                //     continue;
-                // }
                 if (player_turn) {
                     sf::Vector2i dir(0, 0);
                     bool action_taken = false;
                     if (keyPressed->code >= sf::Keyboard::Key::Num1 && keyPressed->code <= sf::Keyboard::Key::Num3) {
-                        int spellIndex = (int)(keyPressed->code) - (int)(sf::Keyboard::Key::Num1); // 0, 1 или 2
+                        int spellIndex = (int)(keyPressed->code) - (int)(sf::Keyboard::Key::Num1);
                         selectedSpell = player->getHand().getSpell(spellIndex);
                         if (selectedSpell) {
+                            bool is_buff = selectedSpell->isBuffSpell();
+                            if (!is_buff) {
+                                player->applyBuffToSpell(*selectedSpell);
+                            }
                             currentMode = GameMode::Targeting;
                             std::cout << "Selected spell: " << selectedSpell->getName()
                                       << ". Range: " << selectedSpell->getRange()
@@ -107,14 +104,13 @@ int main() {
                             std::cout << "No spell in slot " << (spellIndex + 1) << ".\n";
                         }
                     }
-                    // --- НОВАЯ ЛОГИКА: ПОКУПКА ЗАКЛИНАНИЯ (B) ---
                     else if (keyPressed->code == sf::Keyboard::Key::B) {
                         if (player->get_score() >= 50) {
                             bool added = player->getHand().addSpell(spellFactory.createRandomSpell());
                             if (added) {
                                 player->change_score(-50);
                                 std::cout << "Bought a new spell for 50 points. Turn spent.\n";
-                                action_taken = true; // Покупка тратит ход
+                                action_taken = true;
                             } else {
                                 std::cout << "Cannot buy spell, your hand is full!\n";
                             }
@@ -122,11 +118,10 @@ int main() {
                             std::cout << "Not enough points! (Need 50)\n";
                         }
                     }
-                    // --- НОВАЯ ЛОГИКА: ПЕРЕКЛЮЧЕНИЕ РЕЖИМА БОЯ (SPACE) ---
                     else if (keyPressed->code == sf::Keyboard::Key::Space) {
                         player->toggle_combat_mode();
                         action_taken = true;
-                        currentMode = GameMode::Movement; // Сброс
+                        currentMode = GameMode::Movement;
                     }
                     else if (currentMode == GameMode::Movement) {
                         if (keyPressed->code == sf::Keyboard::Key::W) dir = {0, -1};
@@ -162,22 +157,16 @@ int main() {
                     int tileX = mousePos.x / static_cast<int>(tileSize + spacing);
                     int tileY = mousePos.y / static_cast<int>(tileSize + spacing);
                     sf::Vector2i targetPos = {tileX, tileY};
-
-                    // Если мы в режиме прицеливания и кликнули в поле
                     if (player_turn && currentMode == GameMode::Targeting && selectedSpell && field.is_valid_position(targetPos))
                     {
-                        // Пытаемся использовать заклинание
                         bool success = selectedSpell->use(*player, field, targetPos);
-
                         if (success) {
-                            player_turn = false; // Ход потрачен
+                            player_turn = false;
                         }
-                        // В любом случае выходим из режима прицеливания
                         currentMode = GameMode::Movement;
                         selectedSpell = nullptr;
                     }
                     else if (field.is_valid_position(targetPos)) {
-                        // Обычный клик (для информации)
                         std::cout << "Clicked tile (" << tileX << ", " << tileY << ")" << std::endl;
                     }
                 }
@@ -188,10 +177,9 @@ int main() {
             field.move_enemies();
             field.process_buildings();
             field.process_towers();
+            field.move_allies();
             player->decrement_slow();
 
-            // --- НОВОЕ: ПРОВЕРКА НАГРАДЫ ЗА УБИЙСТВА ---
-            // Даем заклинание каждые 3 убийства
             if (player->getKillCount() >= 3) {
                 player->resetKillCount();
                 bool added = player->getHand().addSpell(spellFactory.createRandomSpell());
@@ -227,7 +215,6 @@ int main() {
                 switch (cell.getType()) {
                     case CellType::Empty:
                         if (cell.getTrap()) {
-                            // Цвет для ловушки (темно-бирюзовый)
                             shape.setFillColor(sf::Color(0, 150, 150));
                         } else {
                             shape.setTexture(&emptyTex);
@@ -237,10 +224,8 @@ int main() {
                     case CellType::Player: shape.setFillColor(sf::Color(0, 0, 255)); break;
                     case CellType::Enemy: shape.setTexture(&enemyTex); break;
                     case CellType::Building: shape.setTexture(&buildingTex); break;
-                    case CellType::Tower:
-                        // Цвет для башни (темно-красный)
-                            shape.setFillColor(sf::Color(180, 0, 0));
-                    break;
+                    case CellType::Tower: shape.setFillColor(sf::Color(180, 0, 0)); break;
+                    case CellType::Ally: shape.setFillColor(sf::Color(0, 255, 0)); break;
                 }
 
                 if (cell.getProperty() == CellProperty::Slowing) {
@@ -249,11 +234,9 @@ int main() {
                 }
 
                 if (currentMode == GameMode::Targeting && x == hoverX && y == hoverY) {
-                    // Подсвечиваем красным, если это цель
                     shape.setFillColor(sf::Color(255, 100, 100, 150));
                 }
                 else if (x == hoverX && y == hoverY) {
-                    // Обычная подсветка
                     shape.setFillColor(sf::Color(200, 200, 255, 100));
                 }
                 window.draw(shape);
