@@ -9,9 +9,16 @@ link_directories(/opt/homebrew/lib)
 add_executable(oop_project_game main.cpp
         Enemy.cpp
         Player.cpp
-        Field.cpp
         Cell.cpp
-        EnemyBuilding.cpp)
+        EnemyBuilding.cpp
+        Hand.cpp
+        AreaDamageSpell.cpp
+        DirectDamageSpell.cpp
+        Field.cpp
+#        Trap.cpp
+#        TrapSpell.cpp
+#        TrapSpell.h)
+)
 
 target_link_libraries(oop_project_game sfml-graphics sfml-window sfml-system)
 

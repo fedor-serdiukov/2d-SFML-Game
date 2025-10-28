@@ -3,12 +3,17 @@
 #include <iostream>
 #include "Field.h"
 #include "Player.h"
+#include "SpellFactory.h"
 
 
 constexpr unsigned int FPS_LIMIT = 30;
 constexpr unsigned int ROWS = 25;
 constexpr unsigned int COLS = 25;
 
+enum class GameMode {
+    Movement,
+    Targeting
+};
 
 int main() {
     int player_max_health, melee_damage, ranged_damage;
@@ -17,7 +22,10 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    Player* player = new Player(player_max_health, melee_damage, ranged_damage);
+    Player* player = new Player(player_max_health, melee_damage, ranged_damage, 3);
+    SpellFactory spellFactory; // <-- НОВОЕ
+    // Даем игроку одно стартовое заклинание
+    player->getHand().addSpell(spellFactory.createRandomSpell());
 
     Field field(ROWS, COLS);
     FieldContent content = field.generate_random_content(25, 30, 1, 5, COLS, ROWS);
@@ -36,6 +44,25 @@ int main() {
     ); window.setFramerateLimit(FPS_LIMIT);
 
     bool player_turn = true;
+    GameMode currentMode = GameMode::Movement; // <-- НОВОЕ
+    ISpell* selectedSpell = nullptr;
+    sf::Texture blockedTex, emptyTex, buildingTex, enemyTex;
+    if (!blockedTex.loadFromFile("textures/block.png")) {
+        std::cerr << "Failed to load block texture!" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (!emptyTex.loadFromFile("textures/plain.png")) {
+        std::cerr << "Failed to load plain texture!" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (!buildingTex.loadFromFile("textures/building.png")) {
+        std::cerr << "Failed to load building texture!" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (!enemyTex.loadFromFile("textures/enemy.png")) {
+        std::cerr << "Failed to load enemy texture!" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     while (window.isOpen()) {
         while (std::optional<sf::Event> optEvent = window.pollEvent()) {
@@ -54,44 +81,105 @@ int main() {
                 if (player_turn && player->is_slowed()) {
                     player->decrement_slow();
                     player_turn = false;
+                    currentMode = GameMode::Movement; // Сбрасываем режим
+                    selectedSpell = nullptr;
+                    std::cout << "Player is slowed! Turn skipped.\n";
                     continue;
                 }
+                //
+                // if (player_turn && player->is_slowed()) {
+                //     player->decrement_slow();
+                //     player_turn = false;
+                //     continue;
+                // }
                 if (player_turn) {
                     sf::Vector2i dir(0, 0);
                     bool action_taken = false;
-                    if (keyPressed->code == sf::Keyboard::Key::W) dir = {0, -1};
-                    else if (keyPressed->code == sf::Keyboard::Key::S) dir = {0, 1};
-                    else if (keyPressed->code == sf::Keyboard::Key::A) dir = {-1, 0};
-                    else if (keyPressed->code == sf::Keyboard::Key::D) dir = {1, 0};
+                    if (keyPressed->code >= sf::Keyboard::Key::Num1 && keyPressed->code <= sf::Keyboard::Key::Num3) {
+                        int spellIndex = (int)(keyPressed->code) - (int)(sf::Keyboard::Key::Num1); // 0, 1 или 2
+                        selectedSpell = player->getHand().getSpell(spellIndex);
+                        if (selectedSpell) {
+                            currentMode = GameMode::Targeting;
+                            std::cout << "Selected spell: " << selectedSpell->getName()
+                                      << ". Range: " << selectedSpell->getRange()
+                                      << ". Click to cast.\n";
+                        } else {
+                            std::cout << "No spell in slot " << (spellIndex + 1) << ".\n";
+                        }
+                    }
+                    // --- НОВАЯ ЛОГИКА: ПОКУПКА ЗАКЛИНАНИЯ (B) ---
+                    else if (keyPressed->code == sf::Keyboard::Key::B) {
+                        if (player->get_score() >= 50) {
+                            bool added = player->getHand().addSpell(spellFactory.createRandomSpell());
+                            if (added) {
+                                player->change_score(-50);
+                                std::cout << "Bought a new spell for 50 points. Turn spent.\n";
+                                action_taken = true; // Покупка тратит ход
+                            } else {
+                                std::cout << "Cannot buy spell, your hand is full!\n";
+                            }
+                        } else {
+                            std::cout << "Not enough points! (Need 50)\n";
+                        }
+                    }
+                    // --- НОВАЯ ЛОГИКА: ПЕРЕКЛЮЧЕНИЕ РЕЖИМА БОЯ (SPACE) ---
                     else if (keyPressed->code == sf::Keyboard::Key::Space) {
                         player->toggle_combat_mode();
                         action_taken = true;
+                        currentMode = GameMode::Movement; // Сброс
                     }
-                    if (dir != sf::Vector2i(0, 0)) {
-                        bool moved = field.move_player(dir);
-                        action_taken = moved;
-                        if (moved) {
-                            sf::Vector2i pos = field.find_player_position();
-                            std::cout << "Player moved to (" << pos.x << ", " << pos.y << "), health: " << player->get_health();
-                            if (field.get_cell(pos.x, pos.y).getProperty() == CellProperty::Slowing && player->is_slowed()) {
-                                player->apply_slow(2);
-                                std::cout << ", entered Slowing tile! Movement blocked next turn.";
+                    else if (currentMode == GameMode::Movement) {
+                        if (keyPressed->code == sf::Keyboard::Key::W) dir = {0, -1};
+                        else if (keyPressed->code == sf::Keyboard::Key::S) dir = {0, 1};
+                        else if (keyPressed->code == sf::Keyboard::Key::A) dir = {-1, 0};
+                        else if (keyPressed->code == sf::Keyboard::Key::D) dir = {1, 0};
+                        if (dir != sf::Vector2i(0, 0)) {
+                            bool moved = field.move_player(dir);
+                            action_taken = moved;
+                            if (moved) {
+                                sf::Vector2i pos = field.find_player_position();
+                                std::cout << "Player moved to (" << pos.x << ", " << pos.y << "), health: " << player->get_health();
+                                if (field.get_cell(pos.x, pos.y).getProperty() == CellProperty::Slowing && player->is_slowed()) {
+                                    player->apply_slow(2);
+                                    std::cout << ", entered Slowing tile! Movement blocked next turn.";
+                                }
+                                std::cout << std::endl;
                             }
-                            std::cout << std::endl;
                         }
                     }
+
                     if (action_taken) {
                         player_turn = false;
+                        currentMode = GameMode::Movement;
+                        selectedSpell = nullptr;
                     }
                 }
             }
 
-            if (event.getIf<sf::Event::MouseButtonPressed>()) {
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-                int tileX = mousePos.x / static_cast<int>(tileSize + spacing);
-                int tileY = mousePos.y / static_cast<int>(tileSize + spacing);
-                if (tileX >= 0 && tileX < COLS && tileY >= 0 && tileY < ROWS) {
-                    std::cout << "Clicked tile (" << tileX << ", " << tileY << ")" << std::endl;
+            if (const auto* mousePressed = event.getIf<sf::Event::MouseButtonPressed>()) {
+                if (mousePressed->button == sf::Mouse::Button::Left) {
+                    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+                    int tileX = mousePos.x / static_cast<int>(tileSize + spacing);
+                    int tileY = mousePos.y / static_cast<int>(tileSize + spacing);
+                    sf::Vector2i targetPos = {tileX, tileY};
+
+                    // Если мы в режиме прицеливания и кликнули в поле
+                    if (player_turn && currentMode == GameMode::Targeting && selectedSpell && field.is_valid_position(targetPos))
+                    {
+                        // Пытаемся использовать заклинание
+                        bool success = selectedSpell->use(*player, field, targetPos);
+
+                        if (success) {
+                            player_turn = false; // Ход потрачен
+                        }
+                        // В любом случае выходим из режима прицеливания
+                        currentMode = GameMode::Movement;
+                        selectedSpell = nullptr;
+                    }
+                    else if (field.is_valid_position(targetPos)) {
+                        // Обычный клик (для информации)
+                        std::cout << "Clicked tile (" << tileX << ", " << tileY << ")" << std::endl;
+                    }
                 }
             }
         }
@@ -100,6 +188,19 @@ int main() {
             field.move_enemies();
             field.process_buildings();
             player->decrement_slow();
+
+            // --- НОВОЕ: ПРОВЕРКА НАГРАДЫ ЗА УБИЙСТВА ---
+            // Даем заклинание каждые 3 убийства
+            if (player->getKillCount() >= 3) {
+                player->resetKillCount();
+                bool added = player->getHand().addSpell(spellFactory.createRandomSpell());
+                if (added) {
+                    std::cout << "You earned a new spell for 3 kills!\n";
+                } else {
+                    std::cout << "You earned a spell, but your hand is full!\n";
+                }
+            }
+
             player_turn = true;
             if (field.is_game_over()) {
                 std::cout << "Game Over! Final score: " << player->get_score() << std::endl;
@@ -121,23 +222,7 @@ int main() {
                 sf::RectangleShape shape(sf::Vector2f(tileSize, tileSize));
                 shape.setPosition(sf::Vector2f(posX, posY));
 
-                sf::Texture blockedTex, emptyTex, buildingTex, enemyTex;
-                if (!blockedTex.loadFromFile("textures/block.png")) {
-                    std::cerr << "Failed to load block texture!" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                if (!emptyTex.loadFromFile("textures/plain.png")) {
-                    std::cerr << "Failed to load plain texture!" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                if (!buildingTex.loadFromFile("textures/building.png")) {
-                    std::cerr << "Failed to load building texture!" << std::endl;
-                    return EXIT_FAILURE;
-                }
-                if (!enemyTex.loadFromFile("textures/enemy.png")) {
-                    std::cerr << "Failed to load enemy texture!" << std::endl;
-                    return EXIT_FAILURE;
-                }
+
                 switch (cell.getType()) {
                     case CellType::Empty: shape.setTexture(&emptyTex); break;
                     case CellType::Blocked: shape.setTexture(&blockedTex); break;
@@ -150,8 +235,14 @@ int main() {
                     shape.setOutlineColor(sf::Color::Yellow);
                     shape.setOutlineThickness(3.f);
                 }
-                if (x == hoverX && y == hoverY) {
-                    shape.setFillColor(sf::Color(200, 200, 255));
+
+                if (currentMode == GameMode::Targeting && x == hoverX && y == hoverY) {
+                    // Подсвечиваем красным, если это цель
+                    shape.setFillColor(sf::Color(255, 100, 100, 150));
+                }
+                else if (x == hoverX && y == hoverY) {
+                    // Обычная подсветка
+                    shape.setFillColor(sf::Color(200, 200, 255, 100));
                 }
                 window.draw(shape);
             }

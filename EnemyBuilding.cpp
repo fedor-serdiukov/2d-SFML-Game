@@ -1,7 +1,9 @@
 #include "EnemyBuilding.h"
 
-EnemyBuilding::EnemyBuilding(int interval, int e_health, int e_damage)
-    : spawn_interval(interval), turns_until_spawn(interval), enemy_health(e_health), enemy_damage(e_damage) {}
+// Обновлен конструктор
+EnemyBuilding::EnemyBuilding(int interval, int e_health, int e_damage, int b_health)
+    : spawn_interval(interval), turns_until_spawn(interval),
+      enemy_health(e_health), enemy_damage(e_damage), health(b_health) {}
 
 void EnemyBuilding::tick() {
     if (turns_until_spawn > 0) --turns_until_spawn;
@@ -25,4 +27,14 @@ int EnemyBuilding::get_enemy_damage() const {
 
 int EnemyBuilding::get_spawn_interval() const {
     return spawn_interval;
+}
+
+
+int EnemyBuilding::get_health() const {
+    return health;
+}
+
+void EnemyBuilding::change_health(int delta) {
+    health += delta;
+    if (health < 0) health = 0;
 }

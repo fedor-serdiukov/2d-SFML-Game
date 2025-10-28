@@ -33,7 +33,7 @@ FieldContent Field::generate_random_content(int blocked_count, int slowing_count
     for (int i = 0; i < building_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        EnemyBuilding* b = new EnemyBuilding(10, 30, 10);
+        EnemyBuilding* b = new EnemyBuilding(10, 30, 10, 10);
         content.buildings.emplace_back(pos, b);
     }
 
@@ -204,19 +204,7 @@ bool Field::move_player(sf::Vector2i direction) {
     auto& target = get_cell(new_pos.x, new_pos.y);
     if (target.getType() == CellType::Blocked || target.getType() == CellType::Building) return false;
     if (target.getType() == CellType::Enemy) {
-        Enemy* e = target.getEnemy();
-        e->change_health(-player->get_damage());
-        if (e->get_health() <= 0) {
-            target.clear();
-            auto it = std::find(enemies.begin(), enemies.end(), e);
-            if (it != enemies.end()) {
-                delete *it;
-                enemies.erase(it);
-            }
-            player->change_score(10);
-            std::cout << "Player get 10 pts. Current score: " << player->get_score() << "\n";
-
-        }
+        damageEnemyAt(new_pos, player->get_damage()); // <-- ИЗМЕНЕНО
         return true;
     }
 
@@ -317,4 +305,47 @@ bool Field::is_valid_position(sf::Vector2i pos) const {
 
 bool Field::is_game_over() const {
     return player && player->get_health() <= 0;
+}
+
+void Field::damageEnemyAt(sf::Vector2i pos, int damage) {
+    if (!is_valid_position(pos)) return;
+    auto& cell = get_cell(pos.x, pos.y);
+    if (cell.getType() != CellType::Enemy) return;
+
+    Enemy* e = cell.getEnemy();
+    e->change_health(-damage);
+
+    if (e->get_health() <= 0) {
+        cell.clear(); // Очищаем клетку
+        // Находим и удаляем врага из главного списка
+        auto it = std::find(enemies.begin(), enemies.end(), e);
+        if (it != enemies.end()) {
+            delete *it;
+            enemies.erase(it);
+        }
+        player->change_score(10);
+        player->incrementKillCount(); // <-- НОВОЕ
+        std::cout << "Player destroyed enemy! +10 pts. Kills: " << player->getKillCount() << "\n";
+    }
+}
+
+void Field::damageBuildingAt(sf::Vector2i pos, int damage) {
+    if (!is_valid_position(pos)) return;
+    auto& cell = get_cell(pos.x, pos.y);
+    if (cell.getType() != CellType::Building) return;
+
+    EnemyBuilding* b = cell.getBuilding();
+    b->change_health(-damage);
+
+    if (b->get_health() <= 0) {
+        cell.clear(); // Очищаем клетку
+        // Находим и удаляем здание из главного списка
+        auto it = std::find(buildings.begin(), buildings.end(), b);
+        if (it != buildings.end()) {
+            delete *it;
+            buildings.erase(it);
+        }
+        player->change_score(25); // Больше очков за здание
+        std::cout << "Player destroyed building! +25 pts.\n";
+    }
 }

@@ -47,4 +47,7 @@ public:
     void spawn_enemy_near_building(sf::Vector2i building_pos, int e_health, int e_damage);
     bool is_valid_position(sf::Vector2i pos) const;
     bool is_game_over() const;
+
+    void damageEnemyAt(sf::Vector2i pos, int damage);
+    void damageBuildingAt(sf::Vector2i pos, int damage);
 };

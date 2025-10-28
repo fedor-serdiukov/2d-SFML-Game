@@ -26,12 +26,29 @@ bool Player::inputPlayerStats(int& player_max_health, int& melee_damage, int& ra
     ranged_damage = melee_damage / 2 + 5;
     return true;
 }
+Player::Player(const Player& other)
+    : health(other.health),
+      max_health(other.max_health),
+      melee_damage(other.melee_damage),
+      ranged_damage(other.ranged_damage),
+      score(other.score),
+      combat_mode(other.combat_mode),
+      switching_mode(other.switching_mode), // вероятно, должно быть false?
+      slowed_turns(other.slowed_turns),
+      hand(other.hand), // <-- Здесь вызывается Hand(const Hand& other)
+      killCount(other.killCount)
+{
+    // Тело конструктора может быть пустым
+}
 
-Player::Player(int max_health, int melee_damage, int ranged_damage)
+Player::Player(int max_health, int melee_damage, int ranged_damage, size_t handSize)
     : health(max_health), max_health(max_health),
       melee_damage(melee_damage), ranged_damage(ranged_damage),
-      combat_mode(CombatMode::Melee), switching_mode(false), slowed_turns(0) {
+      combat_mode(CombatMode::Melee), switching_mode(false), slowed_turns(0),
+      hand(handSize) // <-- Инициализация руки
+{
     std::cout << "Game started\nTo exit, press ESC\nMove with WASD, switch mode with SPACE\n";
+    std::cout << "Press 1-3 to select spell, B to buy spell (50 points).\n"; // <-- НОВОЕ
 }
 
 void Player::set_max_health(int max_health) {
@@ -87,6 +104,7 @@ void Player::change_health(int delta) {
 
 void Player::change_score(int add_score) {
     score += add_score;
+    if (score < 0) score = 0;
 }
 
 bool Player::is_slowed() const {
@@ -104,4 +122,20 @@ void Player::decrement_slow() {
             std::cout << "Player is slowed and cannot move this turn!\n";
         }
     }
+}
+
+Hand& Player::getHand() {
+    return hand;
+}
+
+void Player::incrementKillCount() {
+    killCount++;
+}
+
+int Player::getKillCount() const {
+    return killCount;
+}
+
+void Player::resetKillCount() {
+    killCount = 0;
 }

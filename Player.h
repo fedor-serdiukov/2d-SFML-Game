@@ -1,4 +1,5 @@
 #pragma once
+#include "Hand.h" // <-- НОВОЕ
 
 enum class CombatMode {
     Melee,
@@ -15,21 +16,36 @@ private:
     CombatMode combat_mode = CombatMode::Melee;
     bool switching_mode = false;
     int slowed_turns = 0;
+
+    Hand hand; // <-- НОВОЕ
+    int killCount = 0; // <-- НОВОЕ
+
 public:
-    Player(int max_health, int melee_damage, int ranged_damage);
+    // Добавлен handSize
+    Player(int max_health, int melee_damage, int ranged_damage, size_t handSize = 3);
+    Player(const Player& other);
     static bool inputPlayerStats(int& player_max_health, int& melee_damage, int& ranged_damage);
+
     int get_health() const;
     int get_max_health() const;
     int get_damage() const;
     int get_score() const;
     CombatMode get_combat_mode() const;
+
     void toggle_combat_mode();
     bool is_switching_mode() const;
     void reset_switching_mode();
     void set_max_health(int max_health);
     void change_health(int delta);
     void change_score(int add_score);
+
     bool is_slowed() const;
     void apply_slow(int turns = 1);
     void decrement_slow();
+
+    // --- НОВЫЕ МЕТОДЫ ---
+    Hand& getHand();
+    void incrementKillCount();
+    int getKillCount() const;
+    void resetKillCount();
 };
