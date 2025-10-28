@@ -4,12 +4,16 @@
 #include "EnemyBuilding.h"
 #include <SFML/Graphics.hpp>
 
+class Trap;
+class EnemyTower;
+
 enum class CellType {
     Empty,
     Player,
     Enemy,
     Building,
-    Blocked
+    Blocked,
+    Tower
 };
 
 enum class CellProperty {
@@ -29,6 +33,8 @@ private:
     static sf::Texture slowingOverlay;
     static bool texturesLoaded;
     static void loadTextures();
+    Trap* trap = nullptr;
+    EnemyTower* tower = nullptr;
 public:
     Cell(CellType t = CellType::Empty, CellProperty p = CellProperty::None);
     void draw(sf::RenderWindow& window, float x, float y, float tileSize);
@@ -42,5 +48,9 @@ public:
     Enemy* getEnemy() const;
     void setBuilding(EnemyBuilding* b);
     EnemyBuilding* getBuilding() const;
+    void setTrap(Trap* t);
+    Trap* getTrap() const;
+    void setTower(EnemyTower* t);
+    EnemyTower* getTower() const;
     void clear();
 };

@@ -14,7 +14,9 @@ sf::Vector2i Field::random_pos(int max_x, int max_y) {
 }
 
 
-FieldContent Field::generate_random_content(int blocked_count, int slowing_count, int building_count, int enemy_count, int COLS, int ROWS)
+FieldContent Field::generate_random_content(int blocked_count, int slowing_count,
+                                            int building_count, int enemy_count,
+                                            int tower_count, int COLS, int ROWS)
 {
     FieldContent content;
 
@@ -44,6 +46,14 @@ FieldContent Field::generate_random_content(int blocked_count, int slowing_count
         content.initial_enemies.emplace_back(pos, e);
     }
 
+    for (int i = 0; i < tower_count; ++i) {
+        sf::Vector2i pos = random_pos(COLS, ROWS);
+        if (pos.x == 0 && pos.y == 0) continue;
+        // Урон 5, дальность 4, перезарядка 3 хода
+        EnemyTower* t = new EnemyTower(5, 4, 3);
+        content.towers.emplace_back(pos, t);
+    }
+
     return content;
 }
 
@@ -59,7 +69,11 @@ Field::Field(const Field& other) : rows(other.rows), cols(other.cols) {
 
 Field::Field(Field&& other) noexcept
     : rows(other.rows), cols(other.cols), grid(std::move(other.grid)),
-      player(other.player), enemies(std::move(other.enemies)), buildings(std::move(other.buildings)) {
+      player(other.player), enemies(std::move(other.enemies)),
+      buildings(std::move(other.buildings)),
+      towers(std::move(other.towers)),
+      traps(std::move(other.traps))
+{
     other.player = nullptr;
     other.rows = 0;
     other.cols = 0;
@@ -67,10 +81,17 @@ Field::Field(Field&& other) noexcept
 
 Field& Field::operator=(const Field& other) {
     if (this != &other) {
+        // --- ОБНОВЛЕННАЯ ОЧИСТКА ---
         for (auto e : enemies) delete e;
         for (auto b : buildings) delete b;
+        for (auto t : towers) delete t;
+        for (auto t : traps) delete t;
+        delete player; // 'player' удаляется здесь, а не в deep_copy
+
         enemies.clear();
         buildings.clear();
+        towers.clear();
+        traps.clear();
         player = nullptr;
 
         rows = other.rows;
@@ -82,11 +103,17 @@ Field& Field::operator=(const Field& other) {
 
 Field& Field::operator=(Field&& other) noexcept {
     if (this != &other) {
+        // --- ОБНОВЛЕННАЯ ОЧИСТКА ---
         for (auto e : enemies) delete e;
         for (auto b : buildings) delete b;
+        for (auto t : towers) delete t;
+        for (auto t : traps) delete t;
+        delete player;
+
         enemies.clear();
         buildings.clear();
-        delete player;
+        towers.clear();
+        traps.clear();
 
         rows = other.rows;
         cols = other.cols;
@@ -94,6 +121,8 @@ Field& Field::operator=(Field&& other) noexcept {
         player = other.player;
         enemies = std::move(other.enemies);
         buildings = std::move(other.buildings);
+        towers = std::move(other.towers); // <-- ПЕРЕМЕЩЕНИЕ
+        traps = std::move(other.traps);   // <-- ПЕРЕМЕЩЕНИЕ
 
         other.rows = 0;
         other.cols = 0;
@@ -105,6 +134,8 @@ Field& Field::operator=(Field&& other) noexcept {
 Field::~Field() {
     for (auto e : enemies) delete e;
     for (auto b : buildings) delete b;
+    for (auto t : towers) delete t; // <-- ОЧИСТКА
+    for (auto t : traps) delete t; // <-- ОЧИСТКА
     delete player;
 }
 
@@ -135,6 +166,30 @@ void Field::deep_copy(const Field& other) {
             for (int x = 0; x < cols; ++x) {
                 if (other.grid[y][x].getBuilding() == b) {
                     grid[y][x].setBuilding(new_b);
+                }
+            }
+        }
+    }
+
+    for (auto t : other.towers) {
+        EnemyTower* new_t = new EnemyTower(*t); // Используем конструктор копирования
+        towers.push_back(new_t);
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < cols; ++x) {
+                if (other.grid[y][x].getTower() == t) {
+                    grid[y][x].setTower(new_t);
+                }
+            }
+        }
+    }
+
+    for (auto t : other.traps) {
+        Trap* new_t = new Trap(*t); // Используем конструктор копирования
+        traps.push_back(new_t);
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < cols; ++x) {
+                if (other.grid[y][x].getTrap() == t) {
+                    grid[y][x].setTrap(new_t);
                 }
             }
         }
@@ -178,6 +233,15 @@ void Field::initialize(Player* p, const FieldContent& content) {
         cell.setType(CellType::Enemy);
         cell.setEnemy(e);
     }
+    for (auto& pair : content.towers) {
+        auto pos = pair.first;
+        auto t = pair.second;
+        towers.push_back(t);
+        auto& cell = get_cell(pos.x, pos.y);
+        cell.setType(CellType::Tower);
+        cell.setTower(t);
+    }
+
     auto& start_cell = get_cell(0, 0);
     start_cell.setType(CellType::Player);
     start_cell.setPlayer(player);
@@ -202,7 +266,12 @@ bool Field::move_player(sf::Vector2i direction) {
     if (!is_valid_position(new_pos)) return false;
 
     auto& target = get_cell(new_pos.x, new_pos.y);
-    if (target.getType() == CellType::Blocked || target.getType() == CellType::Building) return false;
+    if (target.getType() == CellType::Blocked ||
+        target.getType() == CellType::Building ||
+        target.getType() == CellType::Tower) // <-- Нельзя наступать на башню
+    {
+        return false;
+    }
     if (target.getType() == CellType::Enemy) {
         damageEnemyAt(new_pos, player->get_damage()); // <-- ИЗМЕНЕНО
         return true;
@@ -224,8 +293,11 @@ void Field::move_enemies() {
     sf::Vector2i player_pos = find_player_position();
     if (player_pos.x < 0) return;
 
-    for (auto e : enemies) {
+    std::vector<Enemy*> enemies_copy = enemies;
+
+    for (auto e : enemies_copy) {
         sf::Vector2i pos{-1, -1};
+
         for (int y = 0; y < rows; ++y) {
             for (int x = 0; x < cols; ++x) {
                 if (grid[y][x].getEnemy() == e) {
@@ -235,6 +307,7 @@ void Field::move_enemies() {
             }
             if (pos.x >= 0) break;
         }
+
         if (pos.x < 0) continue;
 
         std::vector<sf::Vector2i> directions = {{0,-1}, {0,1}, {-1,0}, {1,0}};
@@ -245,7 +318,13 @@ void Field::move_enemies() {
             sf::Vector2i new_pos = pos + dir;
             if (!is_valid_position(new_pos)) continue;
             auto& target = get_cell(new_pos.x, new_pos.y);
-            if (target.getType() == CellType::Blocked || target.getType() == CellType::Enemy || target.getType() == CellType::Building) continue;
+            if (target.getType() == CellType::Blocked ||
+                target.getType() == CellType::Enemy ||
+                target.getType() == CellType::Building ||
+                target.getType() == CellType::Tower) // <-- Враги тоже не ходят на башни
+            {
+                continue;
+            }
             if (target.getType() == CellType::Player) {
                 player->change_health(-e->get_damage());
                 moved = true;
@@ -254,6 +333,16 @@ void Field::move_enemies() {
             get_cell(pos.x, pos.y).clear();
             target.setType(CellType::Enemy);
             target.setEnemy(e);
+            if (target.getTrap()) {
+                Trap* t = target.getTrap();
+                std::cout << "Enemy at (" << new_pos.x << ", " << new_pos.y
+                          << ") triggered a trap for " << t->getDamage() << " damage!\n";
+                // Наносим урон (это может убить врага)
+                damageEnemyAt(new_pos, t->getDamage());
+                // Удаляем ловушку
+                removeTrapAt(new_pos);
+            }
+
             moved = true;
             break;
         }
@@ -348,4 +437,65 @@ void Field::damageBuildingAt(sf::Vector2i pos, int damage) {
         player->change_score(25); // Больше очков за здание
         std::cout << "Player destroyed building! +25 pts.\n";
     }
+}
+
+void Field::process_towers() {
+    sf::Vector2i playerPos = find_player_position();
+    if (playerPos.x < 0) return; // Игрока нет на поле
+
+    for (auto t : towers) {
+        t->tick(); // Обновляем таймер перезарядки
+        if (!t->isReady()) continue; // Башня не готова стрелять
+
+        sf::Vector2i towerPos = find_tower_position(t);
+        if (towerPos.x < 0) continue; // Башня не найдена?
+
+        // Проверяем Манхэттенское расстояние
+        int distance = std::abs(playerPos.x - towerPos.x) + std::abs(playerPos.y - towerPos.y);
+
+        if (distance <= t->getRange()) {
+            // Игрок в радиусе атаки
+            std::cout << "Tower at (" << towerPos.x << ", " << towerPos.y
+                      << ") shot player for " << t->getDamage() << " damage!\n";
+            player->change_health(-t->getDamage());
+            t->resetCooldown(); // Башня уходит на перезарядку
+        }
+    }
+}
+
+void Field::addTrap(Trap* trap, sf::Vector2i pos) {
+    if (!is_valid_position(pos)) {
+        delete trap; // Удаляем, если позиция невалидна
+        return;
+    }
+    traps.push_back(trap);
+    get_cell(pos.x, pos.y).setTrap(trap);
+}
+
+void Field::removeTrapAt(sf::Vector2i pos) {
+    if (!is_valid_position(pos)) return;
+
+    Cell& cell = get_cell(pos.x, pos.y);
+    Trap* t = cell.getTrap();
+    if (!t) return;
+
+    cell.setTrap(nullptr); // Убираем указатель из клетки
+
+    // Находим и удаляем ловушку из вектора владения
+    auto it = std::find(traps.begin(), traps.end(), t);
+    if (it != traps.end()) {
+        delete *it;
+        traps.erase(it);
+    }
+}
+
+sf::Vector2i Field::find_tower_position(EnemyTower* t) const {
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            if (grid[y][x].getTower() == t) {
+                return {x, y};
+            }
+        }
+    }
+    return {-1, -1};
 }

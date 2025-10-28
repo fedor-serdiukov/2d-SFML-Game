@@ -5,6 +5,8 @@
 #include "Player.h"
 #include "Enemy.h"
 #include "EnemyBuilding.h"
+#include "Trap.h"
+#include "EnemyTower.h"
 #include <random>
 
 struct FieldContent {
@@ -12,6 +14,7 @@ struct FieldContent {
     std::vector<sf::Vector2i> slowing;
     std::vector<std::pair<sf::Vector2i, EnemyBuilding*>> buildings;
     std::vector<std::pair<sf::Vector2i, Enemy*>> initial_enemies;
+    std::vector<std::pair<sf::Vector2i, EnemyTower*>> towers;
 };
 
 class Field {
@@ -24,6 +27,9 @@ private:
     std::vector<EnemyBuilding*> buildings;
     void deep_copy(const Field& other);
     static std::mt19937 rng;
+    std::vector<EnemyTower*> towers;
+    std::vector<Trap*> traps;
+    sf::Vector2i find_tower_position(EnemyTower* t) const;
 public:
     Field(int r, int c);
     Field(const Field& other);
@@ -37,7 +43,9 @@ public:
     Cell& get_cell(int x, int y);
     const Cell& get_cell(int x, int y) const;
     sf::Vector2i random_pos(int max_x, int max_y);
-    FieldContent generate_random_content(int blocked_count, int slowing_count, int building_count, int enemy_count, int COLS, int ROWS);
+    FieldContent generate_random_content(int blocked_count, int slowing_count,
+                                       int building_count, int enemy_count,
+                                       int tower_count, int COLS, int ROWS);
     void initialize(Player* p, const FieldContent& content);
 
     sf::Vector2i find_player_position() const;
@@ -47,7 +55,9 @@ public:
     void spawn_enemy_near_building(sf::Vector2i building_pos, int e_health, int e_damage);
     bool is_valid_position(sf::Vector2i pos) const;
     bool is_game_over() const;
-
+    void process_towers();
+    void addTrap(Trap* trap, sf::Vector2i pos);
+    void removeTrapAt(sf::Vector2i pos);
     void damageEnemyAt(sf::Vector2i pos, int damage);
     void damageBuildingAt(sf::Vector2i pos, int damage);
 };

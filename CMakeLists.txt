@@ -15,9 +15,11 @@ add_executable(oop_project_game main.cpp
         AreaDamageSpell.cpp
         DirectDamageSpell.cpp
         Field.cpp
-#        Trap.cpp
-#        TrapSpell.cpp
-#        TrapSpell.h)
+        EnemyTower.cpp
+        Trap.cpp
+        TrapSpell.cpp
+
+
 )
 
 target_link_libraries(oop_project_game sfml-graphics sfml-window sfml-system)

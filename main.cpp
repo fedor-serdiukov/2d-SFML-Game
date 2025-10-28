@@ -28,9 +28,9 @@ int main() {
     player->getHand().addSpell(spellFactory.createRandomSpell());
 
     Field field(ROWS, COLS);
-    FieldContent content = field.generate_random_content(25, 30, 1, 5, COLS, ROWS);
-
+    FieldContent content = field.generate_random_content(25, 30, 1, 5, 5, COLS, ROWS);
     field.initialize(player, content);
+
 
     const float tileSize = 25.f;
     const float spacing = 2.f;
@@ -187,6 +187,7 @@ int main() {
         if (!player_turn) {
             field.move_enemies();
             field.process_buildings();
+            field.process_towers();
             player->decrement_slow();
 
             // --- НОВОЕ: ПРОВЕРКА НАГРАДЫ ЗА УБИЙСТВА ---
@@ -224,11 +225,22 @@ int main() {
 
 
                 switch (cell.getType()) {
-                    case CellType::Empty: shape.setTexture(&emptyTex); break;
+                    case CellType::Empty:
+                        if (cell.getTrap()) {
+                            // Цвет для ловушки (темно-бирюзовый)
+                            shape.setFillColor(sf::Color(0, 150, 150));
+                        } else {
+                            shape.setTexture(&emptyTex);
+                        }
+                    break;
                     case CellType::Blocked: shape.setTexture(&blockedTex); break;
                     case CellType::Player: shape.setFillColor(sf::Color(0, 0, 255)); break;
                     case CellType::Enemy: shape.setTexture(&enemyTex); break;
                     case CellType::Building: shape.setTexture(&buildingTex); break;
+                    case CellType::Tower:
+                        // Цвет для башни (темно-красный)
+                            shape.setFillColor(sf::Color(180, 0, 0));
+                    break;
                 }
 
                 if (cell.getProperty() == CellProperty::Slowing) {
