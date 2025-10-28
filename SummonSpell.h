@@ -19,7 +19,5 @@ public:
 
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
 
-    // Методы для усиления
-    int getSummonsCount() const { return summonsCount; }
-    void setSummonsCount(int count) { summonsCount = count; }
+    void setSummonsCount(int count) override;
 };

@@ -39,10 +39,11 @@ Player::Player(const Player& other)
       ranged_damage(other.ranged_damage),
       score(other.score),
       combat_mode(other.combat_mode),
-      switching_mode(other.switching_mode),
-      slowed_turns(other.slowed_turns),
+      switching_mode(false),
+      slowed_turns(0),
       hand(other.hand),
-      killCount(other.killCount)
+      killCount(other.killCount),
+      buffCharges(other.buffCharges)
 {}
 
 Player::Player(int max_health, int melee_damage, int ranged_damage, size_t handSize)
@@ -144,25 +145,40 @@ void Player::resetKillCount() {
     killCount = 0;
 }
 
-void Player::applyBuffToSpell(ISpell& spell) const {
-    if (buffCharges == 0) return;
+int Player::getBuffCharges() const {
+    return buffCharges;
+}
 
-    DirectDamageSpell* dds = dynamic_cast<DirectDamageSpell*>(&spell);
-    AreaDamageSpell* ads = dynamic_cast<AreaDamageSpell*>(&spell);
-    TrapSpell* ts = dynamic_cast<TrapSpell*>(&spell);
-    SummonSpell* ss = dynamic_cast<SummonSpell*>(&spell);
+void Player::addBuffCharge() {
+    buffCharges++;
+}
 
-    if (dds) {
-        dds->setRange(dds->getRange() + buffCharges);
-        std::cout << "[BUFF] Прямой урон: Радиус увеличен на " << buffCharges << std::endl;
-    } else if (ads) {
-        ads->setRange(ads->getRange() + buffCharges);
-        std::cout << "[BUFF] Урон по площади: Радиус увеличен на " << buffCharges << std::endl;
-    } else if (ts) {
-        ts->setDamage(ts->getDamage() + buffCharges * 10);
-        std::cout << "[BUFF] Ловушка: Урон увеличен на " << buffCharges * 10 << std::endl;
-    } else if (ss) {
-        ss->setSummonsCount(ss->getSummonsCount() + buffCharges);
-        std::cout << "[BUFF] Призыв: Количество союзников увеличено на " << buffCharges << std::endl;
+void Player::resetBuffCharges() {
+    buffCharges = 0;
+}
+
+void Player::applyBuffToSpell(ISpell* spell) const {
+    if (!spell || buffCharges == 0) {
+        return;
+    }
+    if (auto* dds = dynamic_cast<DirectDamageSpell*>(spell)) {
+        int newRange = dds->getRange() + buffCharges;
+        dds->setRange(newRange);
+        std::cout << "Power up! Fireball radius increased to " << newRange << std::endl;
+    }
+    else if (auto* ads = dynamic_cast<AreaDamageSpell*>(spell)) {
+        int newRange = ads->getRange() + buffCharges;
+        ads->setRange(newRange);
+        std::cout << "Power up! Meteor radius increased to " << newRange << std::endl;
+    }
+    else if (auto* ts = dynamic_cast<TrapSpell*>(spell)) {
+        int newDamage = ts->getDamage() + (buffCharges * 15);
+        ts->setDamage(newDamage);
+        std::cout << "Power up! Trap damage increased to " << newDamage << std::endl;
+    }
+    else if (auto* ss = dynamic_cast<SummonSpell*>(spell)) {
+        int newCount = 1 + buffCharges;
+        ss->setSummonsCount(newCount);
+        std::cout << "Power up! Golem count increased to " << newCount << std::endl;
     }
 }

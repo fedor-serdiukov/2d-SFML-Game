@@ -9,7 +9,6 @@ private:
 
 public:
     EnemyTower(int dmg, int rng, int cd);
-
     void tick();
     bool isReady() const;
     void resetCooldown();

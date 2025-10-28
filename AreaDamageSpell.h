@@ -15,4 +15,5 @@ public:
     std::string getDescription() const override;
     int getRange() const override;
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
+    void setRange(int range) override;
 };

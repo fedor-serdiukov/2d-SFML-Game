@@ -40,7 +40,7 @@ public:
     Field& operator=(const Field& other);
     Field& operator=(Field&& other) noexcept;
     ~Field();
-
+    static std::mt19937& get_rng() { return rng; }
     int get_rows() const;
     int get_cols() const;
     Cell& get_cell(int x, int y);

@@ -1,6 +1,5 @@
 #include "EnemyBuilding.h"
 
-// Обновлен конструктор
 EnemyBuilding::EnemyBuilding(int interval, int e_health, int e_damage, int b_health)
     : spawn_interval(interval), turns_until_spawn(interval),
       enemy_health(e_health), enemy_damage(e_damage), health(b_health) {}

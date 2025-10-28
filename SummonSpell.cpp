@@ -3,8 +3,9 @@
 #include "Player.h"
 #include "Ally.h"
 #include <iostream>
-#include <algorithm>
+#include <vector>
 #include <random>
+#include <algorithm> // для std::shuffle
 
 SummonSpell::SummonSpell(int hp, int dmg, int count, std::string n, std::string desc)
     : allyHealth(hp), allyDamage(dmg), summonsCount(count),
@@ -16,46 +17,41 @@ std::unique_ptr<ISpell> SummonSpell::clone() const {
 
 std::string SummonSpell::getName() const { return name; }
 std::string SummonSpell::getDescription() const { return description; }
-int SummonSpell::getRange() const { return 0; } // Не требует выбора цели
+int SummonSpell::getRange() const { return 0; }
 
 bool SummonSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
     sf::Vector2i playerPos = field.find_player_position();
     if (playerPos.x < 0) return false;
 
-    std::vector<sf::Vector2i> possible_positions;
-    // Соседние 4 клетки
-    std::vector<sf::Vector2i> directions = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
+    std::vector<sf::Vector2i> directions = {{0,-1}, {0,1}, {-1,0}, {1,0}};
+    std::vector<sf::Vector2i> emptyCells;
 
     for (auto dir : directions) {
         sf::Vector2i pos = playerPos + dir;
         if (field.is_valid_position(pos) && field.get_cell(pos.x, pos.y).getType() == CellType::Empty) {
-            possible_positions.push_back(pos);
+            emptyCells.push_back(pos);
         }
     }
 
-    if (possible_positions.empty()) {
-        std::cout << "Нет места для призыва союзников." << std::endl;
+    if (emptyCells.empty()) {
+        std::cout << "No space to summon allies!" << std::endl;
         return false;
     }
 
-    // Призываем столько союзников, сколько можем, до summonsCount
-    std::random_device rd;
-    std::mt19937 g(rd());
-    std::shuffle(possible_positions.begin(), possible_positions.end(), g);
+    std::shuffle(emptyCells.begin(), emptyCells.end(), Field::get_rng());
 
-    int count = 0;
-    for (const auto& pos : possible_positions) {
-        if (count >= summonsCount) break;
-
+    int spawnedCount = 0;
+    for (const auto& pos : emptyCells) {
+        if (spawnedCount >= summonsCount) break;
         Ally* newAlly = new Ally(allyHealth, allyDamage);
         field.addAlly(newAlly, pos);
-        count++;
+        spawnedCount++;
     }
 
-    if (count > 0) {
-        std::cout << "Призвано " << count << " союзников (HP: " << allyHealth << ", DMG: " << allyDamage << ").\n";
-        return true;
-    }
+    std::cout << "Summoned " << spawnedCount << " allies." << std::endl;
+    return true;
+}
 
-    return false;
+void SummonSpell::setSummonsCount(int count) {
+    summonsCount = count;
 }

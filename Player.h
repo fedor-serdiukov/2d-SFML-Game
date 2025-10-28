@@ -1,5 +1,6 @@
 #pragma once
-#include "Hand.h" // <-- НОВОЕ
+#include "Hand.h"
+#include "ISpell.h"
 
 enum class CombatMode {
     Melee,
@@ -16,14 +17,11 @@ private:
     CombatMode combat_mode = CombatMode::Melee;
     bool switching_mode = false;
     int slowed_turns = 0;
-
-    Hand hand; // <-- НОВОЕ
+    Hand hand;
     int killCount = 0;
     int buffCharges = 0;
-    // <-- НОВОЕ
 
 public:
-    // Добавлен handSize
     Player(int max_health, int melee_damage, int ranged_damage, size_t handSize = 3);
     Player(const Player& other);
     static bool inputPlayerStats(int& player_max_health, int& melee_damage, int& ranged_damage);
@@ -45,16 +43,14 @@ public:
     void apply_slow(int turns = 1);
     void decrement_slow();
 
-    // --- НОВЫЕ МЕТОДЫ ---
     Hand& getHand();
     void incrementKillCount();
     int getKillCount() const;
     void resetKillCount();
 
-    int getBuffCharges() const { return buffCharges; }
-    void addBuffCharge() { buffCharges++; }
-    void resetBuffCharges() { buffCharges = 0; }
-
-    // Метод для применения усиления к заклинанию перед использованием
     void applyBuffToSpell(ISpell& spell) const;
+    int getBuffCharges() const;
+    void addBuffCharge();
+    void resetBuffCharges();
+    void applyBuffToSpell(ISpell* spell) const;
 };

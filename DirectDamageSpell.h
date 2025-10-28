@@ -13,7 +13,7 @@ public:
     std::unique_ptr<ISpell> clone() const override;
     std::string getName() const override;
     std::string getDescription() const override;
-
+    void setRange(int range) override;
     int getRange() const override;
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
 };

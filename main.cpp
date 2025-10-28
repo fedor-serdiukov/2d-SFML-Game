@@ -22,7 +22,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    Player* player = new Player(player_max_health, melee_damage, ranged_damage, 5);
+    Player* player = new Player(player_max_health, melee_damage, ranged_damage, 3);
     SpellFactory spellFactory;
     player->getHand().addSpell(spellFactory.createRandomSpell());
 
@@ -74,8 +74,14 @@ int main() {
 
             if (const auto* keyPressed = event.getIf<sf::Event::KeyPressed>()) {
                 if (keyPressed->code == sf::Keyboard::Key::Escape) {
-                    window.close();
-                    return 0;
+                    if (currentMode == GameMode::Targeting) {
+                        currentMode = GameMode::Movement;
+                        selectedSpell = nullptr;
+                        std::cout << "Spell selection canceled.\n";
+                    } else {
+                        window.close();
+                        return 0;
+                    }
                 }
                 if (player_turn && player->is_slowed()) {
                     player->decrement_slow();
@@ -92,10 +98,6 @@ int main() {
                         int spellIndex = (int)(keyPressed->code) - (int)(sf::Keyboard::Key::Num1);
                         selectedSpell = player->getHand().getSpell(spellIndex);
                         if (selectedSpell) {
-                            bool is_buff = selectedSpell->isBuffSpell();
-                            if (!is_buff) {
-                                player->applyBuffToSpell(*selectedSpell);
-                            }
                             currentMode = GameMode::Targeting;
                             std::cout << "Selected spell: " << selectedSpell->getName()
                                       << ". Range: " << selectedSpell->getRange()
@@ -152,16 +154,25 @@ int main() {
             }
 
             if (const auto* mousePressed = event.getIf<sf::Event::MouseButtonPressed>()) {
-                if (mousePressed->button == sf::Mouse::Button::Left) {
+                 if (mousePressed->button == sf::Mouse::Button::Left) {
                     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                     int tileX = mousePos.x / static_cast<int>(tileSize + spacing);
                     int tileY = mousePos.y / static_cast<int>(tileSize + spacing);
                     sf::Vector2i targetPos = {tileX, tileY};
-                    if (player_turn && currentMode == GameMode::Targeting && selectedSpell && field.is_valid_position(targetPos))
+
+                    if (player_turn && currentMode == GameMode::Targeting && selectedSpell)
                     {
+                        bool is_buff_spell = selectedSpell->isBuffSpell();
+                        if (!is_buff_spell) {
+                            player->applyBuffToSpell(selectedSpell);
+                        }
                         bool success = selectedSpell->use(*player, field, targetPos);
+
                         if (success) {
                             player_turn = false;
+                            if (!is_buff_spell) {
+                                player->resetBuffCharges();
+                            }
                         }
                         currentMode = GameMode::Movement;
                         selectedSpell = nullptr;
@@ -169,7 +180,7 @@ int main() {
                     else if (field.is_valid_position(targetPos)) {
                         std::cout << "Clicked tile (" << tileX << ", " << tileY << ")" << std::endl;
                     }
-                }
+                 }
             }
         }
 

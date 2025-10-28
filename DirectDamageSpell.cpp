@@ -1,7 +1,7 @@
 #include "DirectDamageSpell.h"
-#include "Field.h" // Нужен полный заголовок для Field::damageEnemyAt
+#include "Field.h"
 #include "Player.h"
-#include <cmath> // для std::abs
+#include <cmath>
 #include <iostream>
 
 DirectDamageSpell::DirectDamageSpell(int dmg, int rng, std::string n, std::string desc)
@@ -13,37 +13,36 @@ int DirectDamageSpell::getRange() const { return range; }
 
 bool DirectDamageSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
     sf::Vector2i playerPos = field.find_player_position();
-    if (playerPos.x < 0) return false; // Игрок не найден
+    if (playerPos.x < 0) return false;
 
-    // Проверка радиуса (Манхэттенское расстояние)
     int distance = std::abs(playerPos.x - targetPos.x) + std::abs(playerPos.y - targetPos.y);
     if (distance > range) {
-        std::cout << "Цель вне радиуса действия заклинания." << std::endl;
+        std::cout << "Out of radius." << std::endl;
         return false;
     }
 
-    if (!field.is_valid_position(targetPos)) return false; // Клик за пределами поля
+    if (!field.is_valid_position(targetPos)) return false;
 
-    // Проверка цели
     Cell& targetCell = field.get_cell(targetPos.x, targetPos.y);
     CellType type = targetCell.getType();
 
     if (type == CellType::Enemy) {
         field.damageEnemyAt(targetPos, damage);
-        std::cout << "Нанесено " << damage << " урона врагу в (" << targetPos.x << ", " << targetPos.y << ")" << std::endl;
-        return true; // Заклинание успешно применено
+        std::cout << "Enemy got " << damage << " damage at (" << targetPos.x << ", " << targetPos.y << ")" << std::endl;
+        return true;
     } else if (type == CellType::Building) {
         field.damageBuildingAt(targetPos, damage);
-        std::cout << "Нанесено " << damage << " урона зданию в (" << targetPos.x << ", " << targetPos.y << ")" << std::endl;
-        return true; // Заклинание успешно применено
+        std::cout << "Building got " << damage << " damage at (" << targetPos.x << ", " << targetPos.y << ")" << std::endl;
+        return true;
     }
-
-    // Неверная цель
-    std::cout << "Неверная цель. Нужно целиться во врага или здание." << std::endl;
+    std::cout << "Invalid target. You need to aim at an enemy or a building." << std::endl;
     return false;
 }
 
 std::unique_ptr<ISpell> DirectDamageSpell::clone() const {
-    // Используем стандартный конструктор копирования, созданный компилятором
     return std::make_unique<DirectDamageSpell>(*this);
+}
+
+void DirectDamageSpell::setRange(int range) {
+    this->range = range;
 }

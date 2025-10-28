@@ -35,7 +35,7 @@ FieldContent Field::generate_random_content(int blocked_count, int slowing_count
     for (int i = 0; i < building_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        EnemyBuilding* b = new EnemyBuilding(10, 30, 10, 10);
+        EnemyBuilding* b = new EnemyBuilding(10, 30, 10, 100);
         content.buildings.emplace_back(pos, b);
     }
 
@@ -49,7 +49,6 @@ FieldContent Field::generate_random_content(int blocked_count, int slowing_count
     for (int i = 0; i < tower_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        // Урон 5, дальность 4, перезарядка 3 хода
         EnemyTower* t = new EnemyTower(5, 4, 3);
         content.towers.emplace_back(pos, t);
     }
@@ -63,7 +62,7 @@ Field::Field(int r, int c) : rows(r), cols(c), grid(r, std::vector<Cell>(c)) {
     }
 }
 
-Field::Field(const Field& other) : rows(other.rows), cols(other.cols) {
+Field::Field(const Field& other) : rows(other.rows), cols(other.cols), player(nullptr) {
     deep_copy(other);
 }
 
@@ -72,7 +71,8 @@ Field::Field(Field&& other) noexcept
       player(other.player), enemies(std::move(other.enemies)),
       buildings(std::move(other.buildings)),
       towers(std::move(other.towers)),
-      traps(std::move(other.traps))
+      traps(std::move(other.traps)),
+      allies(std::move(other.allies))
 {
     other.player = nullptr;
     other.rows = 0;
@@ -81,20 +81,18 @@ Field::Field(Field&& other) noexcept
 
 Field& Field::operator=(const Field& other) {
     if (this != &other) {
-        // --- ОБНОВЛЕННАЯ ОЧИСТКА ---
         for (auto e : enemies) delete e;
         for (auto b : buildings) delete b;
         for (auto t : towers) delete t;
         for (auto t : traps) delete t;
         for (auto a : allies) delete a;
-        delete player; // 'player' удаляется здесь, а не в deep_copy
-
+        delete player;
         enemies.clear();
         buildings.clear();
         towers.clear();
         traps.clear();
+        allies.clear();
         player = nullptr;
-
         rows = other.rows;
         cols = other.cols;
         deep_copy(other);
@@ -104,17 +102,18 @@ Field& Field::operator=(const Field& other) {
 
 Field& Field::operator=(Field&& other) noexcept {
     if (this != &other) {
-        // --- ОБНОВЛЕННАЯ ОЧИСТКА ---
         for (auto e : enemies) delete e;
         for (auto b : buildings) delete b;
         for (auto t : towers) delete t;
         for (auto t : traps) delete t;
+        for (auto a : allies) delete a;
         delete player;
 
         enemies.clear();
         buildings.clear();
         towers.clear();
         traps.clear();
+        allies.clear();
 
         rows = other.rows;
         cols = other.cols;
@@ -122,8 +121,9 @@ Field& Field::operator=(Field&& other) noexcept {
         player = other.player;
         enemies = std::move(other.enemies);
         buildings = std::move(other.buildings);
-        towers = std::move(other.towers); // <-- ПЕРЕМЕЩЕНИЕ
-        traps = std::move(other.traps);   // <-- ПЕРЕМЕЩЕНИЕ
+        towers = std::move(other.towers);
+        traps = std::move(other.traps);
+        allies = std::move(other.allies);
 
         other.rows = 0;
         other.cols = 0;
@@ -135,8 +135,9 @@ Field& Field::operator=(Field&& other) noexcept {
 Field::~Field() {
     for (auto e : enemies) delete e;
     for (auto b : buildings) delete b;
-    for (auto t : towers) delete t; // <-- ОЧИСТКА
-    for (auto t : traps) delete t; // <-- ОЧИСТКА
+    for (auto t : towers) delete t;
+    for (auto t : traps) delete t;
+    for (auto a : allies) delete a;
     delete player;
 }
 
@@ -173,7 +174,7 @@ void Field::deep_copy(const Field& other) {
     }
 
     for (auto t : other.towers) {
-        EnemyTower* new_t = new EnemyTower(*t); // Используем конструктор копирования
+        EnemyTower* new_t = new EnemyTower(*t);
         towers.push_back(new_t);
         for (int y = 0; y < rows; ++y) {
             for (int x = 0; x < cols; ++x) {
@@ -184,20 +185,8 @@ void Field::deep_copy(const Field& other) {
         }
     }
 
-    for (auto t : other.traps) {
-        Trap* new_t = new Trap(*t); // Используем конструктор копирования
-        traps.push_back(new_t);
-        for (int y = 0; y < rows; ++y) {
-            for (int x = 0; x < cols; ++x) {
-                if (other.grid[y][x].getTrap() == t) {
-                    grid[y][x].setTrap(new_t);
-                }
-            }
-        }
-    }
-
     for (auto a : other.allies) {
-        Ally* new_a = new Ally(*a); // Используем конструктор копирования
+        Ally* new_a = new Ally(*a);
         allies.push_back(new_a);
         for (int y = 0; y < rows; ++y) {
             for (int x = 0; x < cols; ++x) {
@@ -281,12 +270,13 @@ bool Field::move_player(sf::Vector2i direction) {
     auto& target = get_cell(new_pos.x, new_pos.y);
     if (target.getType() == CellType::Blocked ||
         target.getType() == CellType::Building ||
-        target.getType() == CellType::Tower) // <-- Нельзя наступать на башню
+        target.getType() == CellType::Tower ||
+        target.getType() == CellType::Ally)
     {
         return false;
     }
     if (target.getType() == CellType::Enemy) {
-        damageEnemyAt(new_pos, player->get_damage()); // <-- ИЗМЕНЕНО
+        damageEnemyAt(new_pos, player->get_damage());
         return true;
     }
 
@@ -334,7 +324,7 @@ void Field::move_enemies() {
             if (target.getType() == CellType::Blocked ||
                 target.getType() == CellType::Enemy ||
                 target.getType() == CellType::Building ||
-                target.getType() == CellType::Tower) // <-- Враги тоже не ходят на башни
+                target.getType() == CellType::Tower)
             {
                 continue;
             }
@@ -347,7 +337,7 @@ void Field::move_enemies() {
                     std::cout << "Ally defeated at (" << new_pos.x << ", " << new_pos.y << ").\n";
                     removeAlly(ally);
                 }
-                moved = true; // Считаем, что атака - это ход
+                moved = true;
                 break;
             }
             if (target.getType() == CellType::Player) {
@@ -362,9 +352,7 @@ void Field::move_enemies() {
                 Trap* t = target.getTrap();
                 std::cout << "Enemy at (" << new_pos.x << ", " << new_pos.y
                           << ") triggered a trap for " << t->getDamage() << " damage!\n";
-                // Наносим урон (это может убить врага)
                 damageEnemyAt(new_pos, t->getDamage());
-                // Удаляем ловушку
                 removeTrapAt(new_pos);
             }
 
@@ -430,15 +418,14 @@ void Field::damageEnemyAt(sf::Vector2i pos, int damage) {
     e->change_health(-damage);
 
     if (e->get_health() <= 0) {
-        cell.clear(); // Очищаем клетку
-        // Находим и удаляем врага из главного списка
+        cell.clear();
         auto it = std::find(enemies.begin(), enemies.end(), e);
         if (it != enemies.end()) {
             delete *it;
             enemies.erase(it);
         }
         player->change_score(10);
-        player->incrementKillCount(); // <-- НОВОЕ
+        player->incrementKillCount();
         std::cout << "Player destroyed enemy! +10 pts. Kills: " << player->getKillCount() << "\n";
     }
 }
@@ -452,45 +439,42 @@ void Field::damageBuildingAt(sf::Vector2i pos, int damage) {
     b->change_health(-damage);
 
     if (b->get_health() <= 0) {
-        cell.clear(); // Очищаем клетку
-        // Находим и удаляем здание из главного списка
+        cell.clear();
         auto it = std::find(buildings.begin(), buildings.end(), b);
         if (it != buildings.end()) {
             delete *it;
             buildings.erase(it);
         }
-        player->change_score(25); // Больше очков за здание
+        player->change_score(25);
         std::cout << "Player destroyed building! +25 pts.\n";
     }
 }
 
 void Field::process_towers() {
     sf::Vector2i playerPos = find_player_position();
-    if (playerPos.x < 0) return; // Игрока нет на поле
+    if (playerPos.x < 0) return;
 
     for (auto t : towers) {
-        t->tick(); // Обновляем таймер перезарядки
-        if (!t->isReady()) continue; // Башня не готова стрелять
+        t->tick();
+        if (!t->isReady()) continue;
 
         sf::Vector2i towerPos = find_tower_position(t);
-        if (towerPos.x < 0) continue; // Башня не найдена?
+        if (towerPos.x < 0) continue;
 
-        // Проверяем Манхэттенское расстояние
         int distance = std::abs(playerPos.x - towerPos.x) + std::abs(playerPos.y - towerPos.y);
 
         if (distance <= t->getRange()) {
-            // Игрок в радиусе атаки
             std::cout << "Tower at (" << towerPos.x << ", " << towerPos.y
                       << ") shot player for " << t->getDamage() << " damage!\n";
             player->change_health(-t->getDamage());
-            t->resetCooldown(); // Башня уходит на перезарядку
+            t->resetCooldown();
         }
     }
 }
 
 void Field::addTrap(Trap* trap, sf::Vector2i pos) {
     if (!is_valid_position(pos)) {
-        delete trap; // Удаляем, если позиция невалидна
+        delete trap;
         return;
     }
     traps.push_back(trap);
@@ -504,9 +488,8 @@ void Field::removeTrapAt(sf::Vector2i pos) {
     Trap* t = cell.getTrap();
     if (!t) return;
 
-    cell.setTrap(nullptr); // Убираем указатель из клетки
+    cell.setTrap(nullptr);
 
-    // Находим и удаляем ловушку из вектора владения
     auto it = std::find(traps.begin(), traps.end(), t);
     if (it != traps.end()) {
         delete *it;
@@ -526,14 +509,12 @@ sf::Vector2i Field::find_tower_position(EnemyTower* t) const {
 }
 
 void Field::move_allies() {
-    // Используем копию, т.к. damageEnemyAt может удалить врага, а move_enemies - союзника
     std::vector<Ally*> allies_copy = allies;
 
     for (auto a : allies_copy) {
         sf::Vector2i pos = find_ally_position(a);
-        if (pos.x < 0) continue; // Союзник не найден (возможно, убит)
+        if (pos.x < 0) continue;
 
-        // 1. Поиск ближайшего врага
         sf::Vector2i target_enemy_pos = {-1, -1};
         Enemy* target_enemy = nullptr;
         int min_dist = rows * cols;
@@ -551,22 +532,18 @@ void Field::move_allies() {
             }
         }
 
-        if (!target_enemy) continue; // Нет врагов на поле
+        if (!target_enemy) continue;
 
-        // 2. Атака или Перемещение
         if (min_dist == 1) {
-            // Атака
             std::cout << "Ally at (" << pos.x << ", " << pos.y
                       << ") attacked Enemy for " << a->getDamage() << " damage!\n";
             damageEnemyAt(target_enemy_pos, a->getDamage());
         } else {
-            // Перемещение к ближайшему врагу
             int dx = (target_enemy_pos.x > pos.x) ? 1 : (target_enemy_pos.x < pos.x) ? -1 : 0;
             int dy = (target_enemy_pos.y > pos.y) ? 1 : (target_enemy_pos.y < pos.y) ? -1 : 0;
 
             sf::Vector2i new_pos = pos;
 
-            // Пытаемся переместиться по X или Y
             if (dx != 0 && is_valid_position({pos.x + dx, pos.y}) && get_cell(pos.x + dx, pos.y).getType() == CellType::Empty) {
                 new_pos.x += dx;
             } else if (dy != 0 && is_valid_position({pos.x, pos.y + dy}) && get_cell(pos.x, pos.y + dy).getType() == CellType::Empty) {
@@ -574,7 +551,6 @@ void Field::move_allies() {
             }
 
             if (new_pos != pos) {
-                // Перемещаем союзника
                 get_cell(pos.x, pos.y).clear();
                 get_cell(new_pos.x, new_pos.y).setType(CellType::Ally);
                 get_cell(new_pos.x, new_pos.y).setAlly(a);
@@ -595,14 +571,10 @@ void Field::addAlly(Ally* ally, sf::Vector2i pos) {
 
 void Field::removeAlly(Ally* ally) {
     if (!ally) return;
-
-    // Очищаем клетку
     sf::Vector2i pos = find_ally_position(ally);
     if (pos.x >= 0) {
         get_cell(pos.x, pos.y).clear();
     }
-
-    // Находим и удаляем союзника из вектора владения
     auto it = std::find(allies.begin(), allies.end(), ally);
     if (it != allies.end()) {
         delete *it;
@@ -612,15 +584,15 @@ void Field::removeAlly(Ally* ally) {
 
 void Field::damageAllyAt(sf::Vector2i pos, int damage) {
     if (!is_valid_position(pos)) return;
-    Cell& cell = get_cell(pos.x, pos.y);
-    Ally* ally = cell.getAlly();
+    auto& cell = get_cell(pos.x, pos.y);
+    if (cell.getType() != CellType::Ally) return;
 
-    if (ally) {
-        ally->changeHealth(-damage);
-        if (ally->getHealth() <= 0) {
-            std::cout << "Ally defeated at (" << pos.x << ", " << pos.y << ") by spell damage.\n";
-            removeAlly(ally);
-        }
+    Ally* a = cell.getAlly();
+    a->changeHealth(-damage);
+
+    if (a->getHealth() <= 0) {
+        std::cout << "Ally died at (" << pos.x << ", " << pos.y << ").\n";
+        removeAlly(a);
     }
 }
 

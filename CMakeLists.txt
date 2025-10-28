@@ -21,8 +21,6 @@ add_executable(oop_project_game main.cpp
         Ally.cpp
         SummonSpell.cpp
         BuffSpell.cpp
-
-
 )
 
 target_link_libraries(oop_project_game sfml-graphics sfml-window sfml-system)

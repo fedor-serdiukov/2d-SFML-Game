@@ -15,6 +15,10 @@ int BuffSpell::getRange() const { return 0; }
 
 bool BuffSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
     player.addBuffCharge();
-    std::cout << "Заклинание улучшение применено. Зарядов: " << player.getBuffCharges() << std::endl;
+    std::cout << "Spell is enhanced!" << player.getBuffCharges() << std::endl;
+    return true;
+}
+
+bool BuffSpell::isBuffSpell() const {
     return true;
 }

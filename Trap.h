@@ -7,5 +7,4 @@ private:
 public:
     explicit Trap(int dmg);
     int getDamage() const;
-    // Конструктор копирования по умолчанию нам подходит
 };

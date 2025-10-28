@@ -3,12 +3,11 @@
 Hand::Hand(size_t maxSize) : maxSize(maxSize) {}
 
 Hand::Hand(const Hand& other) : maxSize(other.maxSize) {
-    // Вручную клонируем каждое заклинание из "другой" руки
     for (const auto& spell : other.spells) {
         if (spell) {
             this->spells.push_back(spell->clone());
         } else {
-            this->spells.push_back(nullptr); // или просто пропустить
+            this->spells.push_back(nullptr);
         }
     }
 }
@@ -18,7 +17,7 @@ bool Hand::addSpell(std::unique_ptr<ISpell> spell) {
         spells.push_back(std::move(spell));
         return true;
     }
-    return false; // Рука полна
+    return false;
 }
 
 ISpell* Hand::getSpell(size_t index) const {
