@@ -2,6 +2,7 @@
 #include <random>
 #include <algorithm>
 #include <iostream>
+#include "SpellFactory.h"
 
 std::mt19937 Field::rng(std::random_device{}());
 
@@ -463,10 +464,14 @@ void Field::process_towers() {
 
         int distance = std::abs(playerPos.x - towerPos.x) + std::abs(playerPos.y - towerPos.y);
 
+        DirectDamageSpell baseSpell(20, 5, "Temp", "Temp");
+        int base_damage = baseSpell.getDamage();
+
         if (distance <= t->getRange()) {
+            int weakened_damage = base_damage / 2;
             std::cout << "Tower at (" << towerPos.x << ", " << towerPos.y
-                      << ") shot player for " << t->getDamage() << " damage!\n";
-            player->change_health(-t->getDamage());
+                      << ") attacked player for " << weakened_damage << " (weakened spell damage)!\n";
+            player->change_health(-weakened_damage);
             t->resetCooldown();
         }
     }
