@@ -53,7 +53,6 @@ void Hand::deserialize(std::istream& ifs, SpellFactory& factory) {
 
         std::unique_ptr<ISpell> spell = factory.createSpellByID(id);
         if (spell) {
-            // Заполняем его данными из файла (урон, радиус и т.д.)
             spell->deserialize(ifs);
             spells.push_back(std::move(spell));
         }

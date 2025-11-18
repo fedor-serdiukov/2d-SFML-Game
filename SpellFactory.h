@@ -15,11 +15,9 @@ private:
 public:
     SpellFactory() : rng(std::random_device{}()) {}
 
-    // Создание случайного заклинания (для игры)
     std::unique_ptr<ISpell> createRandomSpell() {
         std::uniform_int_distribution<> dist(0, 4);
         int type = dist(rng);
-        // Используем те же ID, что и в getSpellID()
         return createSpellByID(type);
     }
 

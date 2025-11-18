@@ -17,8 +17,6 @@ public:
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
     void setRange(int range) override;
     void upgrade() override;
-
-    // Новые методы
     int getSpellID() const override { return 1; }
     void serialize(std::ostream& ofs) const override;
     void deserialize(std::istream& ifs) override;

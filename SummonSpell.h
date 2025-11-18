@@ -20,7 +20,6 @@ public:
     void setSummonsCount(int count) override;
     void upgrade() override;
 
-    // Новые методы
     int getSpellID() const override { return 3; }
     void serialize(std::ostream& ofs) const override;
     void deserialize(std::istream& ifs) override;

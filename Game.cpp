@@ -31,13 +31,12 @@ void Game::run() {
 }
 
 void Game::resetGame() {
-    currentLevel = 1; // Сброс уровня при новой игре
+    currentLevel = 1;
 
     Player* newPlayer = new Player(100, 25, 15, 3);
     newPlayer->getHand().addSpell(spellFactory.createRandomSpell());
     player = newPlayer;
 
-    // Первый уровень всегда стандартный
     field = std::make_unique<Field>(25, 25);
     FieldContent content = field->generate_random_content(20, 30, 3, 5, 5, 25, 25, currentLevel);
     field->initialize(player, content);
@@ -48,9 +47,7 @@ void Game::resetGame() {
 }
 
 void Game::initLevel() {
-    // Этот метод можно использовать, если нужно пересоздать только уровень,
-    // но в текущей логике resetGame делает всё.
-    // Оставим пустым или перенесем логику, если потребуется.
+
 }
 
 void Game::handleInput() {
@@ -64,17 +61,14 @@ void Game::handleInput() {
                 bool choiceMade = false;
 
                 if (keyPressed->code == sf::Keyboard::Key::Num1) {
-                    // Вариант 1: Улучшить Здоровье (+20)
                     player->upgradeMaxHealth(20);
                     choiceMade = true;
                 }
                 else if (keyPressed->code == sf::Keyboard::Key::Num2) {
-                    // Вариант 2: Улучшить Урон (+5)
                     player->upgradeDamage(5);
                     choiceMade = true;
                 }
                 else if (keyPressed->code == sf::Keyboard::Key::Num3) {
-                    // Вариант 3: Улучшить Заклинание
                     if (player->getHand().getSpellCount() > 0) {
                         player->upgradeRandomSpellInHand();
                         choiceMade = true;
@@ -84,7 +78,7 @@ void Game::handleInput() {
                 }
 
                 if (choiceMade) {
-                    nextLevel(); // Переход на следующий уровень ПОСЛЕ выбора
+                    nextLevel();
                 }
             }
             if (keyPressed->code == sf::Keyboard::Key::Escape) {
@@ -237,7 +231,7 @@ void Game::render() {
     if (currentState == GameState::Menu) {
         drawMenu();
     }
-    else if (currentState == GameState::LevelUpMenu) { // <-- Добавлено
+    else if (currentState == GameState::LevelUpMenu) {
         drawLevelUpMenu();
     }
     else if (currentState == GameState::Playing && field) {
@@ -346,10 +340,8 @@ void Game::loadGame(const std::string& filename) {
 
         field = std::make_unique<Field>(25, 25);
 
-        // Загружаем. Внутри создается новый игрок (new Player)
         field->deserialize(ifs, spellFactory);
 
-        // Получаем указатель на нового игрока из поля
         player = field->getPlayer();
 
         if (!player) throw std::runtime_error("Player failed to load");
@@ -367,37 +359,28 @@ void Game::nextLevel() {
     currentLevel++;
     std::cout << "\n=== TRANSITION TO LEVEL " << currentLevel << " ===\n";
 
-    // 1. Подготовка игрока (хил, удаление карт)
     player->prepareForNextLevel();
-
-    // 2. ИСПРАВЛЕНИЕ: Сохраняем текущие размеры вместо генерации случайных
     int rows = field->get_rows();
     int cols = field->get_cols();
 
     std::cout << "Field Size remains: " << cols << "x" << rows << "\n";
 
-    // 3. Копируем игрока, чтобы спасти его от удаления вместе со старым полем
     Player* playerCopy = new Player(*player);
 
-    // 4. Создаем новое поле с ТЕМИ ЖЕ размерами
     field = std::make_unique<Field>(rows, cols);
 
-    // Обновляем указатель в Game
     player = playerCopy;
 
-    // 5. Рассчитываем сложность
     int blocks = 10 + currentLevel * 2;
     int slows = 15 + currentLevel * 2;
     int buildings = 2 + (currentLevel / 2);
     int enemies = 3 + currentLevel;
     int towers = 3 + currentLevel;
 
-    // Генерируем контент для тех же размеров (cols, rows)
     FieldContent content = field->generate_random_content(
         blocks, slows, buildings, enemies, towers, cols, rows, currentLevel
     );
 
-    // Инициализируем
     field->initialize(player, content);
 
     player_turn = true;
