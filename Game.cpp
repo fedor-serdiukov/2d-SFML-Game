@@ -19,6 +19,7 @@ Game::Game()
     if (!font.openFromFile("textures/arial.ttf")) {
         std::cerr << "Warning: arial.ttf not found.\n";
     }
+    currentLevel = 1;
 }
 
 void Game::run() {
@@ -30,24 +31,20 @@ void Game::run() {
 }
 
 void Game::resetGame() {
-    // 1. Создаем нового игрока (обычный указатель)
+    currentLevel = 1; // Сброс уровня при новой игре
+
     Player* newPlayer = new Player(100, 25, 15, 3);
     newPlayer->getHand().addSpell(spellFactory.createRandomSpell());
-
-    // 2. Сохраняем ссылку в Game
     player = newPlayer;
 
-    // 3. Пересоздаем поле.
-    // Старое поле удалится -> сработает ~Field() -> удалится СТАРЫЙ игрок.
+    // Первый уровень всегда стандартный
     field = std::make_unique<Field>(25, 25);
-
-    // 4. Генерируем контент и отдаем игрока полю во владение
-    FieldContent content = field->generate_random_content(20, 30, 3, 5, 5, 25, 25);
+    FieldContent content = field->generate_random_content(20, 30, 3, 5, 5, 25, 25, currentLevel);
     field->initialize(player, content);
 
     currentState = GameState::Playing;
     player_turn = true;
-    std::cout << "New Game Started!\n";
+    std::cout << "New Game Started! Level " << currentLevel << "\n";
 }
 
 void Game::initLevel() {
@@ -63,6 +60,33 @@ void Game::handleInput() {
         }
 
         if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+            if (currentState == GameState::LevelUpMenu) {
+                bool choiceMade = false;
+
+                if (keyPressed->code == sf::Keyboard::Key::Num1) {
+                    // Вариант 1: Улучшить Здоровье (+20)
+                    player->upgradeMaxHealth(20);
+                    choiceMade = true;
+                }
+                else if (keyPressed->code == sf::Keyboard::Key::Num2) {
+                    // Вариант 2: Улучшить Урон (+5)
+                    player->upgradeDamage(5);
+                    choiceMade = true;
+                }
+                else if (keyPressed->code == sf::Keyboard::Key::Num3) {
+                    // Вариант 3: Улучшить Заклинание
+                    if (player->getHand().getSpellCount() > 0) {
+                        player->upgradeRandomSpellInHand();
+                        choiceMade = true;
+                    } else {
+                        std::cout << "Cannot upgrade spell: hand is empty!\n";
+                    }
+                }
+
+                if (choiceMade) {
+                    nextLevel(); // Переход на следующий уровень ПОСЛЕ выбора
+                }
+            }
             if (keyPressed->code == sf::Keyboard::Key::Escape) {
                 if (currentState == GameState::Playing) {
                     if (selectedSpell) {
@@ -200,9 +224,10 @@ void Game::update() {
     if (field->is_game_over()) {
         currentState = GameState::GameOver;
         std::cout << "GAME OVER\n";
-    } else if (!field->has_buildings()) {
-        currentState = GameState::Victory;
-        std::cout << "VICTORY!\n";
+    } else if (player->get_score() > 30) {
+        currentState = GameState::LevelUpMenu;
+        std::cout << "Level Complete! Choose an upgrade.\n";
+        player->change_score(-30);
     }
 }
 
@@ -211,6 +236,9 @@ void Game::render() {
 
     if (currentState == GameState::Menu) {
         drawMenu();
+    }
+    else if (currentState == GameState::LevelUpMenu) { // <-- Добавлено
+        drawLevelUpMenu();
     }
     else if (currentState == GameState::Playing && field) {
         for(int y=0; y<field->get_rows(); ++y) {
@@ -270,7 +298,8 @@ void Game::drawUI() {
     if (!player) return;
     sf::Text stats(font, "", 20);
     stats.setPosition({10, 10});
-    stats.setString("HP: " + std::to_string(player->get_health()) +
+    stats.setString("Lvl: " + std::to_string(currentLevel) + "|" +
+                    "HP: " + std::to_string(player->get_health()) +
                     " | Score: " + std::to_string(player->get_score()) +
                     " | Mode: " + (player->get_combat_mode() == CombatMode::Melee ? "Melee" : "Ranged"));
     stats.setFillColor(sf::Color::White);
@@ -332,4 +361,72 @@ void Game::loadGame(const std::string& filename) {
         std::cerr << "Load Error: " << e.what() << std::endl;
         currentState = GameState::Menu;
     }
+}
+
+void Game::nextLevel() {
+    currentLevel++;
+    std::cout << "\n=== TRANSITION TO LEVEL " << currentLevel << " ===\n";
+
+    // 1. Подготовка игрока (хил, удаление карт)
+    player->prepareForNextLevel();
+
+    // 2. ИСПРАВЛЕНИЕ: Сохраняем текущие размеры вместо генерации случайных
+    int rows = field->get_rows();
+    int cols = field->get_cols();
+
+    std::cout << "Field Size remains: " << cols << "x" << rows << "\n";
+
+    // 3. Копируем игрока, чтобы спасти его от удаления вместе со старым полем
+    Player* playerCopy = new Player(*player);
+
+    // 4. Создаем новое поле с ТЕМИ ЖЕ размерами
+    field = std::make_unique<Field>(rows, cols);
+
+    // Обновляем указатель в Game
+    player = playerCopy;
+
+    // 5. Рассчитываем сложность
+    int blocks = 10 + currentLevel * 2;
+    int slows = 15 + currentLevel * 2;
+    int buildings = 2 + (currentLevel / 2);
+    int enemies = 3 + currentLevel;
+    int towers = 3 + currentLevel;
+
+    // Генерируем контент для тех же размеров (cols, rows)
+    FieldContent content = field->generate_random_content(
+        blocks, slows, buildings, enemies, towers, cols, rows, currentLevel
+    );
+
+    // Инициализируем
+    field->initialize(player, content);
+
+    player_turn = true;
+    currentState = GameState::Playing;
+}
+
+void Game::drawLevelUpMenu() {
+    sf::Text title(font, "LEVEL COMPLETE!", 40);
+    title.setFillColor(sf::Color::Yellow);
+    title.setPosition({200, 100});
+
+    sf::Text subtitle(font, "Choose an upgrade for the next level:", 25);
+    subtitle.setPosition({150, 200});
+
+    std::string opt1 = "[1] Upgrade Max Health (+20)";
+    std::string opt2 = "[2] Upgrade Damage (+5)";
+    std::string opt3 = "[3] Upgrade Random Spell";
+
+    sf::Text t1(font, opt1, 30); t1.setPosition({150, 300});
+    sf::Text t2(font, opt2, 30); t2.setPosition({150, 350});
+    sf::Text t3(font, opt3, 30); t3.setPosition({150, 400});
+
+    if (player->getHand().getSpellCount() == 0) {
+        t3.setFillColor(sf::Color(100, 100, 100));
+    }
+
+    window.draw(title);
+    window.draw(subtitle);
+    window.draw(t1);
+    window.draw(t2);
+    window.draw(t3);
 }

@@ -17,9 +17,14 @@ sf::Vector2i Field::random_pos(int max_x, int max_y) {
 
 FieldContent Field::generate_random_content(int blocked_count, int slowing_count,
                                             int building_count, int enemy_count,
-                                            int tower_count, int COLS, int ROWS)
+                                            int tower_count, int COLS, int ROWS, int level)
 {
     FieldContent content;
+
+    int enemyBonusHP = (level - 1) * 10;
+    int enemyBonusDmg = (level - 1) * 2;
+
+    int buildingBonusHP = (level - 1) * 20;
 
     for (int i = 0; i < blocked_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
@@ -36,21 +41,35 @@ FieldContent Field::generate_random_content(int blocked_count, int slowing_count
     for (int i = 0; i < building_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        EnemyBuilding* b = new EnemyBuilding(10, 30, 10, 100);
+
+        // База: спавн каждые 30 ходов (можно уменьшать с уровнем), моб 30hp/10dmg, сама база 100hp
+        // Усиленная:
+        EnemyBuilding* b = new EnemyBuilding(
+            std::max(10, 30 - level),   // Интервал спавна (уменьшается, но не меньше 10)
+            30 + enemyBonusHP,          // HP спавнящегося врага
+            10 + enemyBonusDmg,         // Урон спавнящегося врага
+            100 + buildingBonusHP       // HP здания
+        );
         content.buildings.emplace_back(pos, b);
     }
 
     for (int i = 0; i < enemy_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        Enemy* e = new Enemy(30, 10);
+
+        Enemy* e = new Enemy(30 + enemyBonusHP, 10 + enemyBonusDmg);
         content.initial_enemies.emplace_back(pos, e);
     }
 
     for (int i = 0; i < tower_count; ++i) {
         sf::Vector2i pos = random_pos(COLS, ROWS);
         if (pos.x == 0 && pos.y == 0) continue;
-        EnemyTower* t = new EnemyTower(5, 4, 3);
+
+        EnemyTower* t = new EnemyTower(
+            5 + enemyBonusDmg, // Урон
+            4 + (level / 3),   // Радиус (растет каждые 3 уровня)
+            3                  // Кулдаун
+        );
         content.towers.emplace_back(pos, t);
     }
 
@@ -692,38 +711,50 @@ void Field::serialize(std::ostream& ofs) const {
 }
 
 void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
+    // 1. Очистка текущего состояния
     for (auto e : enemies) delete e;
     for (auto b : buildings) delete b;
     for (auto t : towers) delete t;
     for (auto t : traps) delete t;
     for (auto a : allies) delete a;
-    delete player;
-    enemies.clear(); buildings.clear(); towers.clear(); traps.clear(); allies.clear();
 
+    // Важно: удаляем игрока, если он есть, так как сейчас создадим нового
+    if (player) {
+        delete player;
+        player = nullptr;
+    }
+
+    enemies.clear();
+    buildings.clear();
+    towers.clear();
+    traps.clear();
+    allies.clear();
+
+    // 2. Читаем размеры
     ifs.read(reinterpret_cast<char*>(&rows), sizeof(rows));
     ifs.read(reinterpret_cast<char*>(&cols), sizeof(cols));
 
+    // Пересоздаем сетку
     grid.assign(rows, std::vector<Cell>(cols));
 
-
+    // 3. Читаем Игрока (НО ПОКА НЕ СТАВИМ НА ПОЛЕ!)
     bool hasPlayer;
+    sf::Vector2i savedPlayerPos = {-1, -1}; // Временное хранение координат
+
     ifs.read(reinterpret_cast<char*>(&hasPlayer), sizeof(hasPlayer));
     if (hasPlayer) {
-        int px, py;
-        ifs.read(reinterpret_cast<char*>(&px), sizeof(px));
-        ifs.read(reinterpret_cast<char*>(&py), sizeof(py));
+        ifs.read(reinterpret_cast<char*>(&savedPlayerPos.x), sizeof(savedPlayerPos.x));
+        ifs.read(reinterpret_cast<char*>(&savedPlayerPos.y), sizeof(savedPlayerPos.y));
 
+        // Создаем игрока и загружаем его параметры
         player = new Player(100, 10, 5, 3);
         player->deserialize(ifs, spellFactory);
-
-        if (is_valid_position({px, py})) {
-            get_cell(px, py).setType(CellType::Player);
-            get_cell(px, py).setPlayer(player);
-        }
     } else {
         player = nullptr;
     }
 
+    // 4. Читаем Сетку (Ландшафт)
+    // Этот цикл перезапишет типы клеток, поэтому игрок должен ставиться ПОСЛЕ него
     for(int y=0; y<rows; ++y) {
         for(int x=0; x<cols; ++x) {
             CellType t;
@@ -735,16 +766,27 @@ void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
         }
     }
 
+    // 5. ТЕПЕРЬ ставим игрока на поле (если он был загружен)
+    if (player && is_valid_position(savedPlayerPos)) {
+        Cell& cell = get_cell(savedPlayerPos.x, savedPlayerPos.y);
+        cell.setType(CellType::Player);
+        cell.setPlayer(player);
+    }
+
+    // Вспомогательная лямбда для чтения позиции
     auto readPos = [&](sf::Vector2i& pos) {
         ifs.read(reinterpret_cast<char*>(&pos.x), sizeof(pos.x));
         ifs.read(reinterpret_cast<char*>(&pos.y), sizeof(pos.y));
     };
 
+    // 6. Загружаем остальные объекты (они записываются после сетки, поэтому проблем нет)
+
+    // Buildings
     size_t count;
     ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
     for(size_t i=0; i<count; ++i) {
         sf::Vector2i pos; readPos(pos);
-        EnemyBuilding* b = new EnemyBuilding(0,0,0,0); // dummy
+        EnemyBuilding* b = new EnemyBuilding(0,0,0,0);
         b->deserialize(ifs);
         buildings.push_back(b);
         if(is_valid_position(pos)) {
@@ -753,6 +795,7 @@ void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
         }
     }
 
+    // Enemies
     ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
     for(size_t i=0; i<count; ++i) {
         sf::Vector2i pos; readPos(pos);
@@ -765,6 +808,7 @@ void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
         }
     }
 
+    // Towers
     ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
     for(size_t i=0; i<count; ++i) {
         sf::Vector2i pos; readPos(pos);
@@ -777,6 +821,7 @@ void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
         }
     }
 
+    // Allies
     ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
     for(size_t i=0; i<count; ++i) {
         sf::Vector2i pos; readPos(pos);
@@ -789,6 +834,7 @@ void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
         }
     }
 
+    // Traps
     ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
     for(size_t i=0; i<count; ++i) {
         sf::Vector2i pos; readPos(pos);

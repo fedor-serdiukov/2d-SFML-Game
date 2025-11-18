@@ -22,4 +22,5 @@ public:
     virtual int getSpellID() const = 0;
     virtual void serialize(std::ostream& ofs) const = 0;
     virtual void deserialize(std::istream& ifs) = 0;
+    virtual void upgrade() {}
 };

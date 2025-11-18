@@ -57,4 +57,9 @@ public:
 
     void serialize(std::ostream& ofs) const;
     void deserialize(std::istream& ifs, SpellFactory& factory);
+
+    void prepareForNextLevel();
+    void upgradeMaxHealth(int amount);
+    void upgradeDamage(int amount);
+    void upgradeRandomSpellInHand();
 };

@@ -10,7 +10,8 @@ enum class GameState {
     Menu,
     Playing,
     GameOver,
-    Victory
+    Victory,
+    LevelUpMenu
 };
 
 class Game {
@@ -32,6 +33,7 @@ private:
     // Параметры отображения
     const float tileSize = 25.f;
     const float spacing = 2.f;
+
 
     // Логика управления
     bool player_turn;
@@ -56,6 +58,9 @@ private:
     void processPlayerTurn(const sf::Event& event);
     void processMouseInput(const sf::Event& event);
 
+    int currentLevel = 1;
+    void nextLevel();
+    void drawLevelUpMenu();
 public:
     Game();
     void run();

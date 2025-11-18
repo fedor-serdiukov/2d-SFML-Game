@@ -208,3 +208,52 @@ void Player::deserialize(std::istream& ifs, SpellFactory& factory) {
 
     hand.deserialize(ifs, factory);
 }
+
+void Player::prepareForNextLevel() {
+    health = max_health;
+
+    // 2. Удаляем половину карт
+    // Если карт 3, удалится 1 (целочисленное деление). Если 4, то 2.
+    int countToRemove = hand.getSpellCount() / 2;
+    if (countToRemove > 0) {
+        hand.removeRandomSpells(countToRemove);
+        std::cout << "Level passed! Health restored. " << countToRemove << " spells removed from hand.\n";
+    } else {
+        std::cout << "Level passed! Health restored. No spells removed (hand too small).\n";
+    }
+
+    // Сбрасываем замедление и другие статусы
+    slowed_turns = 0;
+    buffCharges = 0;
+}
+
+void Player::upgradeMaxHealth(int amount) {
+    max_health += amount;
+    health += amount; // Лечим на величину добавленного здоровья (опционально)
+    std::cout << "Player Max Health upgraded by " << amount << ". New Max HP: " << max_health << "\n";
+}
+
+void Player::upgradeDamage(int amount) {
+    melee_damage += amount;
+    ranged_damage += amount; // Улучшаем и дальний бой тоже
+    std::cout << "Player Damage upgraded by " << amount << ".\n";
+}
+
+void Player::upgradeRandomSpellInHand() {
+    if (hand.getSpellCount() == 0) {
+        std::cout << "No spells to upgrade!\n";
+        return;
+    }
+
+    // Выбираем случайное заклинание
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::uniform_int_distribution<> dis(0, hand.getSpellCount() - 1);
+
+    int index = dis(g);
+    ISpell* spell = hand.getSpell(index);
+    if (spell) {
+        spell->upgrade();
+        std::cout << "Upgraded spell: " << spell->getName() << "\n";
+    }
+}

@@ -18,7 +18,7 @@ public:
     int getRange() const override;
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
     void setSummonsCount(int count) override;
-    void upgrade();
+    void upgrade() override;
 
     // Новые методы
     int getSpellID() const override { return 3; }

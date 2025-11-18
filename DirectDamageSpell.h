@@ -16,7 +16,7 @@ public:
     void setRange(int range) override;
     int getRange() const override;
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
-    void upgrade();
+    void upgrade() override;
     int getDamage() const override { return damage; } // Добавим геттер для damage
     void setDamage(int dmg) override { damage = dmg; }
 

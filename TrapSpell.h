@@ -18,7 +18,7 @@ public:
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
     int getDamage() const override;
     void setDamage(int damage) override;
-    void upgrade();
+    void upgrade() override;
 
     // Новые методы
     int getSpellID() const override { return 2; }

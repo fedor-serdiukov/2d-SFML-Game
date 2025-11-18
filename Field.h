@@ -48,7 +48,7 @@ public:
     sf::Vector2i random_pos(int max_x, int max_y);
     FieldContent generate_random_content(int blocked_count, int slowing_count,
                                        int building_count, int enemy_count,
-                                       int tower_count, int COLS, int ROWS);
+                                       int tower_count, int COLS, int ROWS, int level);
     void initialize(Player* p, const FieldContent& content);
 
     sf::Vector2i find_player_position() const;
