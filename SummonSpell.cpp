@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <random>
-#include <algorithm> // для std::shuffle
+#include <algorithm>
 
 SummonSpell::SummonSpell(int hp, int dmg, int count, std::string n, std::string desc)
     : allyHealth(hp), allyDamage(dmg), summonsCount(count),
@@ -54,4 +54,21 @@ bool SummonSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
 
 void SummonSpell::setSummonsCount(int count) {
     summonsCount = count;
+}
+
+void SummonSpell::upgrade() {
+    allyDamage += 10;
+    allyHealth += 10;
+}
+
+void SummonSpell::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&allyDamage), sizeof(allyDamage));
+    ofs.write(reinterpret_cast<const char*>(&allyHealth), sizeof(allyHealth));
+    ofs.write(reinterpret_cast<const char*>(&summonsCount), sizeof(summonsCount));
+}
+
+void SummonSpell::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&allyDamage), sizeof(allyDamage));
+    ifs.read(reinterpret_cast<char*>(&allyHealth), sizeof(allyHealth));
+    ifs.read(reinterpret_cast<char*>(&summonsCount), sizeof(summonsCount));
 }

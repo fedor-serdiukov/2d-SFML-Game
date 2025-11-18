@@ -16,4 +16,12 @@ public:
     void setRange(int range) override;
     int getRange() const override;
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
+    void upgrade();
+    int getDamage() const override { return damage; } // Добавим геттер для damage
+    void setDamage(int dmg) override { damage = dmg; }
+
+    // Новые методы
+    int getSpellID() const override { return 0; }
+    void serialize(std::ostream& ofs) const override;
+    void deserialize(std::istream& ifs) override;
 };

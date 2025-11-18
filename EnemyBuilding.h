@@ -1,4 +1,6 @@
 #pragma once
+#include <ostream>
+#include <istream>
 
 class EnemyBuilding {
 private:
@@ -17,4 +19,6 @@ public:
     int get_spawn_interval() const;
     int get_health() const;
     void change_health(int delta);
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs);
 };

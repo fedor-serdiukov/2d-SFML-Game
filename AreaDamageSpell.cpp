@@ -51,3 +51,18 @@ std::unique_ptr<ISpell> AreaDamageSpell::clone() const {
 void AreaDamageSpell::setRange(int range) {
     this->range = range;
 }
+
+void AreaDamageSpell::upgrade() {
+    damage += 10;
+    range += 1;
+}
+
+void AreaDamageSpell::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&damage), sizeof(damage));
+    ofs.write(reinterpret_cast<const char*>(&range), sizeof(range));
+}
+
+void AreaDamageSpell::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&damage), sizeof(damage));
+    ifs.read(reinterpret_cast<char*>(&range), sizeof(range));
+}

@@ -17,3 +17,13 @@ void Ally::changeHealth(int amount) {
     health += amount;
     if (health < 0) health = 0;
 }
+
+void Ally::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&health), sizeof(health));
+    ofs.write(reinterpret_cast<const char*>(&damage), sizeof(damage));
+}
+
+void Ally::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&health), sizeof(health));
+    ifs.read(reinterpret_cast<char*>(&damage), sizeof(damage));
+}

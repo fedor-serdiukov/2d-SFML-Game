@@ -18,4 +18,10 @@ public:
     bool use(Player& player, Field& field, sf::Vector2i targetPos) override;
     int getDamage() const override;
     void setDamage(int damage) override;
+    void upgrade();
+
+    // Новые методы
+    int getSpellID() const override { return 2; }
+    void serialize(std::ostream& ofs) const override;
+    void deserialize(std::istream& ifs) override;
 };

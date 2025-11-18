@@ -1,4 +1,6 @@
 #pragma once
+#include <ostream>
+#include <istream>
 
 class Ally {
 private:
@@ -11,4 +13,6 @@ public:
     int getHealth() const;
     int getDamage() const;
     void changeHealth(int amount);
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs);
 };

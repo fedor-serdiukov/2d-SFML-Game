@@ -611,3 +611,192 @@ sf::Vector2i Field::find_ally_position(Ally* a) const {
     }
     return {-1, -1};
 }
+
+bool Field::has_buildings() const {
+    return !buildings.empty();
+}
+
+void Field::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&rows), sizeof(rows));
+    ofs.write(reinterpret_cast<const char*>(&cols), sizeof(cols));
+
+    if (player) {
+        bool hasPlayer = true;
+        ofs.write(reinterpret_cast<const char*>(&hasPlayer), sizeof(hasPlayer));
+        sf::Vector2i pPos = find_player_position();
+        ofs.write(reinterpret_cast<const char*>(&pPos.x), sizeof(pPos.x));
+        ofs.write(reinterpret_cast<const char*>(&pPos.y), sizeof(pPos.y));
+        player->serialize(ofs);
+    } else {
+        bool hasPlayer = false;
+        ofs.write(reinterpret_cast<const char*>(&hasPlayer), sizeof(hasPlayer));
+    }
+
+    for(const auto& row : grid) {
+        for(const auto& cell : row) {
+            CellType t = cell.getType();
+            CellProperty p = cell.getProperty();
+            if (t != CellType::Blocked && t != CellType::Empty) t = CellType::Empty;
+            ofs.write(reinterpret_cast<const char*>(&t), sizeof(t));
+            ofs.write(reinterpret_cast<const char*>(&p), sizeof(p));
+        }
+    }
+
+    size_t count = buildings.size();
+    ofs.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for(auto* b : buildings) {
+        sf::Vector2i pos{-1, -1};
+        for(int y=0; y<rows; ++y) for(int x=0; x<cols; ++x) if(grid[y][x].getBuilding() == b) pos = {x,y};
+        ofs.write(reinterpret_cast<const char*>(&pos.x), sizeof(pos.x));
+        ofs.write(reinterpret_cast<const char*>(&pos.y), sizeof(pos.y));
+        b->serialize(ofs);
+    }
+
+    count = enemies.size();
+    ofs.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for(auto* e : enemies) {
+        sf::Vector2i pos{-1, -1};
+        for(int y=0; y<rows; ++y) for(int x=0; x<cols; ++x) if(grid[y][x].getEnemy() == e) pos = {x,y};
+        ofs.write(reinterpret_cast<const char*>(&pos.x), sizeof(pos.x));
+        ofs.write(reinterpret_cast<const char*>(&pos.y), sizeof(pos.y));
+        e->serialize(ofs);
+    }
+
+    count = towers.size();
+    ofs.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for(auto* t : towers) {
+        sf::Vector2i pos = find_tower_position(t);
+        ofs.write(reinterpret_cast<const char*>(&pos.x), sizeof(pos.x));
+        ofs.write(reinterpret_cast<const char*>(&pos.y), sizeof(pos.y));
+        t->serialize(ofs);
+    }
+
+    count = allies.size();
+    ofs.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for(auto* a : allies) {
+        sf::Vector2i pos = find_ally_position(a);
+        ofs.write(reinterpret_cast<const char*>(&pos.x), sizeof(pos.x));
+        ofs.write(reinterpret_cast<const char*>(&pos.y), sizeof(pos.y));
+        a->serialize(ofs);
+    }
+
+    count = traps.size();
+    ofs.write(reinterpret_cast<const char*>(&count), sizeof(count));
+    for(auto* t : traps) {
+        sf::Vector2i pos{-1, -1};
+        for(int y=0; y<rows; ++y) for(int x=0; x<cols; ++x) if(grid[y][x].getTrap() == t) pos = {x,y};
+        ofs.write(reinterpret_cast<const char*>(&pos.x), sizeof(pos.x));
+        ofs.write(reinterpret_cast<const char*>(&pos.y), sizeof(pos.y));
+        t->serialize(ofs);
+    }
+}
+
+void Field::deserialize(std::istream& ifs, SpellFactory& spellFactory) {
+    for (auto e : enemies) delete e;
+    for (auto b : buildings) delete b;
+    for (auto t : towers) delete t;
+    for (auto t : traps) delete t;
+    for (auto a : allies) delete a;
+    delete player;
+    enemies.clear(); buildings.clear(); towers.clear(); traps.clear(); allies.clear();
+
+    ifs.read(reinterpret_cast<char*>(&rows), sizeof(rows));
+    ifs.read(reinterpret_cast<char*>(&cols), sizeof(cols));
+
+    grid.assign(rows, std::vector<Cell>(cols));
+
+
+    bool hasPlayer;
+    ifs.read(reinterpret_cast<char*>(&hasPlayer), sizeof(hasPlayer));
+    if (hasPlayer) {
+        int px, py;
+        ifs.read(reinterpret_cast<char*>(&px), sizeof(px));
+        ifs.read(reinterpret_cast<char*>(&py), sizeof(py));
+
+        player = new Player(100, 10, 5, 3);
+        player->deserialize(ifs, spellFactory);
+
+        if (is_valid_position({px, py})) {
+            get_cell(px, py).setType(CellType::Player);
+            get_cell(px, py).setPlayer(player);
+        }
+    } else {
+        player = nullptr;
+    }
+
+    for(int y=0; y<rows; ++y) {
+        for(int x=0; x<cols; ++x) {
+            CellType t;
+            CellProperty p;
+            ifs.read(reinterpret_cast<char*>(&t), sizeof(t));
+            ifs.read(reinterpret_cast<char*>(&p), sizeof(p));
+            grid[y][x].setType(t);
+            grid[y][x].setProperty(p);
+        }
+    }
+
+    auto readPos = [&](sf::Vector2i& pos) {
+        ifs.read(reinterpret_cast<char*>(&pos.x), sizeof(pos.x));
+        ifs.read(reinterpret_cast<char*>(&pos.y), sizeof(pos.y));
+    };
+
+    size_t count;
+    ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
+    for(size_t i=0; i<count; ++i) {
+        sf::Vector2i pos; readPos(pos);
+        EnemyBuilding* b = new EnemyBuilding(0,0,0,0); // dummy
+        b->deserialize(ifs);
+        buildings.push_back(b);
+        if(is_valid_position(pos)) {
+            get_cell(pos.x, pos.y).setType(CellType::Building);
+            get_cell(pos.x, pos.y).setBuilding(b);
+        }
+    }
+
+    ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
+    for(size_t i=0; i<count; ++i) {
+        sf::Vector2i pos; readPos(pos);
+        Enemy* e = new Enemy(0,0);
+        e->deserialize(ifs);
+        enemies.push_back(e);
+        if(is_valid_position(pos)) {
+            get_cell(pos.x, pos.y).setType(CellType::Enemy);
+            get_cell(pos.x, pos.y).setEnemy(e);
+        }
+    }
+
+    ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
+    for(size_t i=0; i<count; ++i) {
+        sf::Vector2i pos; readPos(pos);
+        EnemyTower* t = new EnemyTower(0,0,0);
+        t->deserialize(ifs);
+        towers.push_back(t);
+        if(is_valid_position(pos)) {
+            get_cell(pos.x, pos.y).setType(CellType::Tower);
+            get_cell(pos.x, pos.y).setTower(t);
+        }
+    }
+
+    ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
+    for(size_t i=0; i<count; ++i) {
+        sf::Vector2i pos; readPos(pos);
+        Ally* a = new Ally(0,0);
+        a->deserialize(ifs);
+        allies.push_back(a);
+        if(is_valid_position(pos)) {
+            get_cell(pos.x, pos.y).setType(CellType::Ally);
+            get_cell(pos.x, pos.y).setAlly(a);
+        }
+    }
+
+    ifs.read(reinterpret_cast<char*>(&count), sizeof(count));
+    for(size_t i=0; i<count; ++i) {
+        sf::Vector2i pos; readPos(pos);
+        Trap* t = new Trap(0);
+        t->deserialize(ifs);
+        traps.push_back(t);
+        if(is_valid_position(pos)) {
+            get_cell(pos.x, pos.y).setTrap(t);
+        }
+    }
+}

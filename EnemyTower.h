@@ -1,4 +1,6 @@
 #pragma once
+#include <ostream>
+#include <istream>
 
 class EnemyTower {
 private:
@@ -14,4 +16,6 @@ public:
     void resetCooldown();
     int getRange() const;
     int getDamage() const;
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs);
 };

@@ -19,4 +19,7 @@ public:
     virtual int getDamage() const { return 0; }
     virtual void setDamage(int damage) {}
     virtual void setSummonsCount(int count) {}
+    virtual int getSpellID() const = 0;
+    virtual void serialize(std::ostream& ofs) const = 0;
+    virtual void deserialize(std::istream& ifs) = 0;
 };

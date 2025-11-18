@@ -1,6 +1,6 @@
 #include "TrapSpell.h"
-#include "Field.h" // Нужен полный заголовок
-#include "Trap.h"  // Включаем Trap
+#include "Field.h"
+#include "Trap.h"
 #include "Player.h"
 #include <cmath>
 #include <iostream>
@@ -30,10 +30,8 @@ bool TrapSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
 
     Cell& targetCell = field.get_cell(targetPos.x, targetPos.y);
     if (targetCell.getType() == CellType::Empty && targetCell.getTrap() == nullptr) {
-
         Trap* newTrap = new Trap(damage);
         field.addTrap(newTrap, targetPos);
-
         std::cout << "Trap (damage " << damage << ") is set at ("
                   << targetPos.x << ", " << targetPos.y << ")" << std::endl;
         return true;
@@ -43,10 +41,20 @@ bool TrapSpell::use(Player& player, Field& field, sf::Vector2i targetPos) {
     return false;
 }
 
-int TrapSpell::getDamage() const {
-    return damage;
+int TrapSpell::getDamage() const { return damage; }
+void TrapSpell::setDamage(int damage) { this->damage = damage; }
+
+void TrapSpell::upgrade() {
+    damage += 10;
+    range += 1;
 }
 
-void TrapSpell::setDamage(int damage) {
-    this->damage = damage;
+void TrapSpell::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&damage), sizeof(damage));
+    ofs.write(reinterpret_cast<const char*>(&range), sizeof(range));
+}
+
+void TrapSpell::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&damage), sizeof(damage));
+    ifs.read(reinterpret_cast<char*>(&range), sizeof(range));
 }

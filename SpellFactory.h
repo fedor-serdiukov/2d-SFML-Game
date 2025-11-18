@@ -15,20 +15,22 @@ private:
 public:
     SpellFactory() : rng(std::random_device{}()) {}
 
+    // Создание случайного заклинания (для игры)
     std::unique_ptr<ISpell> createRandomSpell() {
         std::uniform_int_distribution<> dist(0, 4);
         int type = dist(rng);
+        // Используем те же ID, что и в getSpellID()
+        return createSpellByID(type);
+    }
 
-        if (type == 0) {
-            return std::make_unique<DirectDamageSpell>(20, 5, "Fireball", "Hurls a ball of fire (20 dmg).");
-        } else if (type == 1) {
-            return std::make_unique<AreaDamageSpell>(10, 4, "Meteor", "Calls a 2x2 meteor (10 dmg).");
-        } else if (type == 2) {
-            return std::make_unique<TrapSpell>(40, 3, "Trap", "Lays a 40 dmg trap.");
-        } else if (type == 3) {
-            return std::make_unique<SummonSpell>(20, 5, 1, "Golem", "Summons an ally (20hp, 5dmg).");
-        } else {
-            return std::make_unique<BuffSpell>("Empower", "Empowers your next spell.");
+    std::unique_ptr<ISpell> createSpellByID(int id) {
+        switch (id) {
+            case 0: return std::make_unique<DirectDamageSpell>(0, 0, "Fireball", "Desc");
+            case 1: return std::make_unique<AreaDamageSpell>(0, 0, "Meteor", "Desc");
+            case 2: return std::make_unique<TrapSpell>(0, 0, "Trap", "Desc");
+            case 3: return std::make_unique<SummonSpell>(0, 0, 0, "Golem", "Desc");
+            case 4: return std::make_unique<BuffSpell>("Empower", "Desc");
+            default: return nullptr;
         }
     }
 };

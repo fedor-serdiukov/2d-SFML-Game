@@ -46,3 +46,18 @@ std::unique_ptr<ISpell> DirectDamageSpell::clone() const {
 void DirectDamageSpell::setRange(int range) {
     this->range = range;
 }
+
+void DirectDamageSpell::upgrade() {
+    damage += 10;
+    range += 1;
+}
+
+void DirectDamageSpell::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&damage), sizeof(damage));
+    ofs.write(reinterpret_cast<const char*>(&range), sizeof(range));
+}
+
+void DirectDamageSpell::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&damage), sizeof(damage));
+    ifs.read(reinterpret_cast<char*>(&range), sizeof(range));
+}

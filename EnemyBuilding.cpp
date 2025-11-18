@@ -37,3 +37,18 @@ void EnemyBuilding::change_health(int delta) {
     health += delta;
     if (health < 0) health = 0;
 }
+
+void EnemyBuilding::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&spawn_interval), sizeof(spawn_interval));
+    ofs.write(reinterpret_cast<const char*>(&turns_until_spawn), sizeof(turns_until_spawn));
+    ofs.write(reinterpret_cast<const char*>(&enemy_health), sizeof(enemy_health));
+    ofs.write(reinterpret_cast<const char*>(&enemy_damage), sizeof(enemy_damage));
+    ofs.write(reinterpret_cast<const char*>(&health), sizeof(health));
+}
+void EnemyBuilding::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&spawn_interval), sizeof(spawn_interval));
+    ifs.read(reinterpret_cast<char*>(&turns_until_spawn), sizeof(turns_until_spawn));
+    ifs.read(reinterpret_cast<char*>(&enemy_health), sizeof(enemy_health));
+    ifs.read(reinterpret_cast<char*>(&enemy_damage), sizeof(enemy_damage));
+    ifs.read(reinterpret_cast<char*>(&health), sizeof(health));
+}

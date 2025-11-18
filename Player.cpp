@@ -182,3 +182,29 @@ void Player::applyBuffToSpell(ISpell* spell) const {
         std::cout << "Power up! Golem count increased to " << newCount << std::endl;
     }
 }
+
+void Player::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&health), sizeof(health));
+    ofs.write(reinterpret_cast<const char*>(&max_health), sizeof(max_health));
+    ofs.write(reinterpret_cast<const char*>(&melee_damage), sizeof(melee_damage));
+    ofs.write(reinterpret_cast<const char*>(&ranged_damage), sizeof(ranged_damage));
+    ofs.write(reinterpret_cast<const char*>(&score), sizeof(score));
+    ofs.write(reinterpret_cast<const char*>(&killCount), sizeof(killCount));
+    ofs.write(reinterpret_cast<const char*>(&buffCharges), sizeof(buffCharges));
+    ofs.write(reinterpret_cast<const char*>(&combat_mode), sizeof(combat_mode));
+
+    hand.serialize(ofs);
+}
+
+void Player::deserialize(std::istream& ifs, SpellFactory& factory) {
+    ifs.read(reinterpret_cast<char*>(&health), sizeof(health));
+    ifs.read(reinterpret_cast<char*>(&max_health), sizeof(max_health));
+    ifs.read(reinterpret_cast<char*>(&melee_damage), sizeof(melee_damage));
+    ifs.read(reinterpret_cast<char*>(&ranged_damage), sizeof(ranged_damage));
+    ifs.read(reinterpret_cast<char*>(&score), sizeof(score));
+    ifs.read(reinterpret_cast<char*>(&killCount), sizeof(killCount));
+    ifs.read(reinterpret_cast<char*>(&buffCharges), sizeof(buffCharges));
+    ifs.read(reinterpret_cast<char*>(&combat_mode), sizeof(combat_mode));
+
+    hand.deserialize(ifs, factory);
+}

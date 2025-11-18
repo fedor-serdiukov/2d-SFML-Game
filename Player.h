@@ -1,6 +1,7 @@
 #pragma once
 #include "Hand.h"
 #include "ISpell.h"
+#include "SpellFactory.h"
 
 enum class CombatMode {
     Melee,
@@ -53,4 +54,7 @@ public:
     void addBuffCharge();
     void resetBuffCharges();
     void applyBuffToSpell(ISpell* spell) const;
+
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs, SpellFactory& factory);
 };

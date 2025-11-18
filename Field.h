@@ -63,8 +63,13 @@ public:
     void removeTrapAt(sf::Vector2i pos);
     void damageEnemyAt(sf::Vector2i pos, int damage);
     void damageBuildingAt(sf::Vector2i pos, int damage);
-    void move_allies(); // <-- НОВЫЙ МЕТОД
-    void addAlly(Ally* ally, sf::Vector2i pos); // <-- НОВЫЙ МЕТОД
-    void removeAlly(Ally* ally); // <-- НОВЫЙ МЕТОД
+    void move_allies();
+    void addAlly(Ally* ally, sf::Vector2i pos);
+    void removeAlly(Ally* ally);
     void damageAllyAt(sf::Vector2i pos, int damage);
+
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs, SpellFactory& spellFactory);
+    bool has_buildings() const;
+    Player* getPlayer() const { return player; }
 };

@@ -25,3 +25,16 @@ int EnemyTower::getRange() const {
 int EnemyTower::getDamage() const {
     return damage;
 }
+
+void EnemyTower::serialize(std::ostream& ofs) const {
+    ofs.write(reinterpret_cast<const char*>(&damage), sizeof(damage));
+    ofs.write(reinterpret_cast<const char*>(&range), sizeof(range));
+    ofs.write(reinterpret_cast<const char*>(&cooldown), sizeof(cooldown));
+    ofs.write(reinterpret_cast<const char*>(&turns_until_ready), sizeof(turns_until_ready));
+}
+void EnemyTower::deserialize(std::istream& ifs) {
+    ifs.read(reinterpret_cast<char*>(&damage), sizeof(damage));
+    ifs.read(reinterpret_cast<char*>(&range), sizeof(range));
+    ifs.read(reinterpret_cast<char*>(&cooldown), sizeof(cooldown));
+    ifs.read(reinterpret_cast<char*>(&turns_until_ready), sizeof(turns_until_ready));
+}

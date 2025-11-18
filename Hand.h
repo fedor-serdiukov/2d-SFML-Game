@@ -2,6 +2,9 @@
 #include "ISpell.h"
 #include <vector>
 #include <memory>
+#include "SpellFactory.h"
+#include <ostream>
+#include <istream>
 
 class Hand {
 private:
@@ -15,4 +18,7 @@ public:
     ISpell* getSpell(size_t index) const;
     size_t getSpellCount() const;
     size_t getMaxSize() const;
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs, SpellFactory& factory);
+    void removeRandomSpells(int count);
 };

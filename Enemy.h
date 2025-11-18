@@ -1,4 +1,6 @@
 #pragma once
+#include <ostream>
+#include <istream>
 
 class Enemy {
 private:
@@ -9,4 +11,6 @@ public:
     int get_health() const;
     int get_damage() const;
     void change_health(int delta);
+    void serialize(std::ostream& ofs) const;
+    void deserialize(std::istream& ifs);
 };
